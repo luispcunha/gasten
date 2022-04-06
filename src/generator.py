@@ -1,9 +1,9 @@
 import torch.nn as nn
 
 
-class GeneratorSmaller(nn.Module):
+class Generator(nn.Module):
     def __init__(self, nc, nz=100, ngf=64):
-        super(GeneratorSmaller, self).__init__()
+        super(Generator, self).__init__()
         self.nz = nz
         self.ngf = ngf
         self.first = nn.Sequential(

@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -13,4 +14,4 @@ def weights_init(m):
 def binary_accuracy(y_pred, y_true, avg=True, threshold=0.5):
     correct = (y_pred > threshold) == y_true
 
-    return correct.sum() if avg is False else correct.mean()
+    return correct.sum() if avg is False else correct.type(torch.float32).mean()

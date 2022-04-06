@@ -11,14 +11,29 @@ class DiscriminatorLoss:
 
 
 class GeneratorLoss:
+    def __init__(self, terms):
+        self.terms = terms
+
+    def __call__(self, device, output, fake_data):
+        raise NotImplementedError
+
+    def get_loss_terms(self):
+        return self.terms
+
+
+class RegularGeneratorLoss(GeneratorLoss):
+    def __init__(self):
+        super().__init__([])
+
     def __call__(self, device, output, fake_data):
         ones = torch.ones_like(output, dtype=torch.float, device=device)
 
         return F.binary_cross_entropy(output, ones), {}
 
 
-class NewGeneratorLossBinary(GeneratorLoss):
+class NewGeneratorLoss(GeneratorLoss):
     def __init__(self, classifier, beta=0.5):
+        super().__init__(['term_1', 'term_2'])
         self.classifier = classifier
         self.beta = beta
 
@@ -37,6 +52,7 @@ class NewGeneratorLossBinary(GeneratorLoss):
 
 class NewGeneratorLossBinary(GeneratorLoss):
     def __init__(self, classifier, beta=0.5):
+        super().__init__(['term_1', 'term_2'])
         self.classifier = classifier
         self.beta = beta
 

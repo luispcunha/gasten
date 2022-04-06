@@ -1,9 +1,9 @@
 import torch.nn as nn
 
 
-class DiscriminatorSmaller(nn.Module):
+class Discriminator(nn.Module):
     def __init__(self, nc, ndf=64):
-        super(DiscriminatorSmaller, self).__init__()
+        super(Discriminator, self).__init__()
         self.main = nn.Sequential(
             # (b, nc, 28, 28)
             nn.Conv2d(nc, ndf, 5, 2, 2, bias=False),
