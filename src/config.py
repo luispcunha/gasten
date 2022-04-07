@@ -13,7 +13,7 @@ config_schema = Schema({
     "out-dir": os.path.exists,
     "fixed-noise-size": int,
     "dataset": {
-        "dir": os.path.exists,
+        "dir": str,
         "name": And(str, valid_dataset),
         Optional("binary"): {"pos": int, "neg": int}
     },
@@ -29,10 +29,10 @@ config_schema = Schema({
         "beta2": float,
     },
     "train": {
-        "original-gan": {
+        "original-gan": Or(And(str, os.path.exists), {
             "epochs": int,
             "batch-size": int,
-        },
+        }),
         "modified-gan": {
             "epochs": int,
             "batch-size": int,

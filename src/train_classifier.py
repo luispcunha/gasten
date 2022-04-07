@@ -21,12 +21,12 @@ def parse_args():
     parser.add_argument('--pos', dest='pos_class', default=7, type=int, help='Positive class for binary classification')
     parser.add_argument('--neg', dest='neg_class', default=1, type=int, help='Negative class for binary classification')
     parser.add_argument('--workers', type=int, help='Number of data loading workers', default=2)
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=2, help='Batch size')
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=64, help='Batch size')
     parser.add_argument('--image-size', dest='image_size', type=int, default=28, help='Height / width of the images')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train for')
     parser.add_argument('--early-stop', type=int, default=2, help='Early stopping criteria')
-    parser.add_argument('--goal-acc-min', dest='goal_acc_min', type=float, default=0.94, help='Height / width of the images')
-    parser.add_argument('--goal-acc-max', dest='goal_acc_max', type=float, default=0.96, help='Height / width of the images')
+    parser.add_argument('--goal-acc-min', dest='goal_acc_min', type=float, default=None, help='Height / width of the images')
+    parser.add_argument('--goal-acc-max', dest='goal_acc_max', type=float, default=None, help='Height / width of the images')
 
     return parser.parse_args()
 
@@ -72,21 +72,23 @@ def main():
 
     name = 'classifier.simple.{}v{}'.format(args.pos_class, args.neg_class) if args.name is None else args.name
 
-    full_dataset, nc = get_mnist(args.data_dir, args.image_size, train=True)
+    full_dataset = get_mnist(args.data_dir, args.image_size, train=True)
     dataset = BinaryDataset(full_dataset, args.pos_class, args.neg_class)
 
     train_set, val_set = torch.utils.data.random_split(dataset,
                                                        [int(5/6*len(dataset)), len(dataset) - int(5/6*len(dataset))])
 
-    sampler_labels = train_set.dataset.targets[train_set.indices]
-    sampler = samplers.MPerClassSampler(sampler_labels, args.batch_size / 2, batch_size=args.batch_size)
+    sampler = None
+    if args.goal_acc_max is not None and args.goal_acc_min is not None:
+        sampler_labels = train_set.dataset.targets[train_set.indices]
+        sampler = samplers.MPerClassSampler(sampler_labels, args.batch_size / 2, batch_size=args.batch_size)
 
     train_loader = torch.utils.data.DataLoader(
         train_set, sampler=sampler, batch_size=args.batch_size, num_workers=args.workers)
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
-    full_test_set, nc = get_mnist(args.data_dir, args.image_size, train=False)
+    full_test_set = get_mnist(args.data_dir, args.image_size, train=False)
     test_set = BinaryDataset(full_test_set, args.pos_class, args.neg_class)
     test_loader = torch.utils.data.DataLoader(
         test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
@@ -95,7 +97,7 @@ def main():
     print(torch.bincount(test_set.targets.type(torch.uint8)))
 
     model_params = {
-        'nc': nc,
+        'nc': 1,
         'nf': 1,
     }
 
