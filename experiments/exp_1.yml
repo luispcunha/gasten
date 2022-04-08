@@ -1,6 +1,6 @@
 name: "exp1_7v1"
 out-dir: "/content/drive/MyDrive/thesis/out"
-fixed-noise-size: 64
+fixed-noise: 64
 
 dataset:
   dir: "data"

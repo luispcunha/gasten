@@ -96,8 +96,6 @@ def main():
     args = parse_args()
 
     config = read_config(args.config_path)
-    print(config)
-    exit(-1)
     print("Loaded experiment configuration from {}".format(args.config_path))
 
     device = torch.device("cuda:0" if (args.cuda and torch.cuda.is_available()) else "cpu")
@@ -117,14 +115,19 @@ def main():
 
     original_gan_cp_dir = os.path.join(cp_dir, 'original')
 
-    fixed_noise = torch.randn(config['fixed-noise-size'], G.nz, 1, 1, device=device)
-    with open(os.path.join(cp_dir, 'fixed_noise.npy'), 'wb') as f:
-        np.save(f, fixed_noise.cpu().numpy())
+    fixed_noise = None
+    if type(config['fixed-noise']) == str:
+        arr = np.load(config['fixed-noise'])
+        fixed_noise = torch.Tensor(arr).to(device)
+    else:
+        fixed_noise = torch.randn(config['fixed-noise-size'], G.nz, 1, 1, device=device)
+        with open(os.path.join(cp_dir, 'fixed_noise.npy'), 'wb') as f:
+            np.save(f, fixed_noise.cpu().numpy())
 
     ###
     # Train original GAN
     ###
-    if type(config['original-gan']) != str:
+    if type(config['train']['original-gan']) != str:
         batch_size = config['train']['original-gan']['batch-size']
         n_epochs = config['train']['original-gan']['epochs']
 
@@ -134,7 +137,7 @@ def main():
             D, d_optim, d_crit,
             original_gan_cp_dir, fixed_noise=fixed_noise)
     else:
-        latest_checkpoint_dir = config['original-gan']
+        latest_checkpoint_dir = config['train']['original-gan']
 
     ###
     # Train modified GAN

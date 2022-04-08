@@ -20,13 +20,13 @@ def parse_args():
     parser.add_argument('--name', dest='name', default=None, help='Name of the classifier for output files')
     parser.add_argument('--pos', dest='pos_class', default=7, type=int, help='Positive class for binary classification')
     parser.add_argument('--neg', dest='neg_class', default=1, type=int, help='Negative class for binary classification')
-    parser.add_argument('--workers', type=int, help='Number of data loading workers', default=2)
-    parser.add_argument('--batch-size', dest='batch_size', type=int, default=64, help='Batch size')
+    parser.add_argument('--batch-size', dest='batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--image-size', dest='image_size', type=int, default=28, help='Height / width of the images')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train for')
     parser.add_argument('--early-stop', type=int, default=2, help='Early stopping criteria')
-    parser.add_argument('--goal-acc-min', dest='goal_acc_min', type=float, default=None, help='Height / width of the images')
-    parser.add_argument('--goal-acc-max', dest='goal_acc_max', type=float, default=None, help='Height / width of the images')
+    parser.add_argument('--lr', type=float, default=1e-3, help='ADAM opt learning rate')
+    parser.add_argument('--goal-loss-min', dest='goal_loss_min', type=float, default=0.298)
+    parser.add_argument('--goal-loss-max', dest='goal_loss_max', type=float, default=0.302)
 
     return parser.parse_args()
 
@@ -79,19 +79,19 @@ def main():
                                                        [int(5/6*len(dataset)), len(dataset) - int(5/6*len(dataset))])
 
     sampler = None
-    if args.goal_acc_max is not None and args.goal_acc_min is not None:
+    if args.goal_loss_max is not None and args.goal_loss_min is not None:
         sampler_labels = train_set.dataset.targets[train_set.indices]
         sampler = samplers.MPerClassSampler(sampler_labels, args.batch_size / 2, batch_size=args.batch_size)
 
     train_loader = torch.utils.data.DataLoader(
-        train_set, sampler=sampler, batch_size=args.batch_size, num_workers=args.workers)
+        train_set, sampler=sampler, batch_size=args.batch_size)
     val_loader = torch.utils.data.DataLoader(
-        val_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+        val_set, batch_size=args.batch_size, shuffle=True)
 
     full_test_set = get_mnist(args.data_dir, args.image_size, train=False)
     test_set = BinaryDataset(full_test_set, args.pos_class, args.neg_class)
     test_loader = torch.utils.data.DataLoader(
-        test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+        test_set, batch_size=args.batch_size, shuffle=False)
 
     print(torch.bincount(train_set.dataset.targets[train_set.indices].type(torch.uint8)))
     print(torch.bincount(test_set.targets.type(torch.uint8)))
@@ -103,7 +103,7 @@ def main():
 
     C = Classifier(model_params['nc'], model_params['nf']).to(device)
     print(C)
-    opt = optim.Adam(C.parameters())
+    opt = optim.Adam(C.parameters(), lr=args.lr)
     criterion = nn.BCELoss()
 
     best_loss = float('inf')
@@ -137,19 +137,19 @@ def main():
             opt.step()
 
             # Output training stats
-            if args.goal_acc_max is not None and args.goal_acc_min is not None:
+            if args.goal_loss_max is not None and args.goal_loss_min is not None:
                 print('[%d/%d][%d/%d]\tloss: %.4f\tAcc: %.4f'
                       % (epoch + 1, args.epochs, i + 1, len(train_loader), loss.item(),
                          binary_accuracy(y_hat, y, avg=True)))
                 test_stats = test(C, device, test_set, test_loader, criterion, cp_path=None, verbose=False)
-                if args.goal_acc_min <= test_stats['acc'] <= args.goal_acc_max:
-                    name_with_acc = '{}.{}'.format(name, round(test_stats['acc'] * 100))
+                if args.goal_loss_min <= test_stats['loss'] <= args.goal_loss_max:
+                    name_with_acc = '{}.{}'.format(name, '{}'.format(round(test_stats['loss'] * 100)))
                     cp_path = checkpoint(C, name_with_acc, model_params, {'test': test_stats}, args,
                                          output_dir=args.out_dir)
                     print("\nSaved checkpoint to {}".format(cp_path))
                     exit(0)
-                elif test_stats['acc'] > args.goal_acc_max:
-                    name_with_acc = '{}.{}_fail'.format(name, round(test_stats['acc'] * 100))
+                elif test_stats['loss'] < args.goal_loss_min:
+                    name_with_acc = '{}.{}_fail'.format(name, '{}'.format(round(test_stats['loss'] * 100)))
                     cp_path = checkpoint(C, name_with_acc, model_params, {'test': test_stats}, args,
                                          output_dir=args.out_dir)
                     print("\nSaved checkpoint to {}".format(cp_path))
@@ -205,7 +205,9 @@ def main():
                 if early_stop_tracker == args.early_stop:
                     early_stop = True
 
-    test(C, device, test_set, test_loader, criterion, cp_path=cp_path)
+    test_stats = test(C, device, test_set, test_loader, criterion, cp_path=cp_path)
+    cp_path = checkpoint(C, name, model_params, {'test': test_stats}, args,
+                         output_dir=args.out_dir)
 
 
 if __name__ == '__main__':

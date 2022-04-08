@@ -11,7 +11,7 @@ def valid_dataset(name):
 config_schema = Schema({
     "name": str,
     "out-dir": os.path.exists,
-    "fixed-noise-size": int,
+    "fixed-noise": Or(str, int),
     "dataset": {
         "dir": str,
         "name": And(str, valid_dataset),
