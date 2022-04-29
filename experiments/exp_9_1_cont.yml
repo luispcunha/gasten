@@ -1,0 +1,39 @@
+name: "exp_8_3_cont"
+out-dir: "/content/drive/MyDrive/thesis/out"
+fixed-noise: "/content/drive/MyDrive/thesis/out/exp_8_3_04-20T19:35:05/fixed-noise.npy"
+
+dataset:
+  dir: "data"
+  name: "mnist"
+  binary:
+   pos: 8
+   neg: 3
+
+model:
+  nc: 1
+  nz: 100
+  ngf: 64
+  ndf: 64
+
+optimizer:
+  lr: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+
+train:
+  original-gan: "/content/drive/MyDrive/thesis/out/exp_8_3_04-20T19:35:05/original/50"
+  modified-gan:
+    epochs: 50
+    batch-size: 64
+    classifier:
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.mnist.8v3.20.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.mnist.8v3.25.pth"
+    weight:
+      - 0.5
+      - 0.55
+      - 0.6
+      - 0.65
+      - 0.7
+
+
+

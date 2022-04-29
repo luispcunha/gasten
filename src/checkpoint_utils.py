@@ -52,7 +52,7 @@ def construct_classifier_from_checkpoint(path, device=None, optimizer=False):
     print('Model', cp['name'])
     print('\t> Params: ', model_params)
 
-    model = Classifier(model_params['nc'], model_params['nf']).to(device)
+    model = Classifier(model_params['nc'], model_params['nf'], model_params['n_classes']).to(device)
     model.load_state_dict(cp['state'])
     model.eval()
 

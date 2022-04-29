@@ -1,4 +1,3 @@
-import os
 import argparse
 import torch
 import torch.nn as nn
@@ -6,8 +5,8 @@ import torch.optim as optim
 from tqdm import tqdm
 from pytorch_metric_learning import samplers
 
-from datasets import get_mnist
-from utils import binary_accuracy
+from datasets import get_mnist, get_fashion_mnist
+from utils import binary_accuracy, multiclass_accuracy
 from binary_dataset import BinaryDataset
 from checkpoint_utils import checkpoint, load_checkpoint
 from classifier import Classifier
@@ -18,20 +17,23 @@ def parse_args():
     parser.add_argument('--data-dir', dest='data_dir', default='../data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir', default='../out', help='Path to generated files')
     parser.add_argument('--name', dest='name', default=None, help='Name of the classifier for output files')
-    parser.add_argument('--pos', dest='pos_class', default=7, type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=1, type=int, help='Negative class for binary classification')
+    parser.add_argument('--dataset', dest='dataset_name', default='fashion-mnist', help='Dataset (mnist or fashion-mnist)')
+    parser.add_argument('--pos', dest='pos_class', default=None, type=int, help='Positive class for binary classification')
+    parser.add_argument('--neg', dest='neg_class', default=None, type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--image-size', dest='image_size', type=int, default=28, help='Height / width of the images')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train for')
     parser.add_argument('--early-stop', type=int, default=2, help='Early stopping criteria')
     parser.add_argument('--lr', type=float, default=1e-3, help='ADAM opt learning rate')
-    parser.add_argument('--goal-loss-min', dest='goal_loss_min', type=float, default=0.298)
-    parser.add_argument('--goal-loss-max', dest='goal_loss_max', type=float, default=0.302)
+    parser.add_argument('--goal-loss-min', dest='goal_loss_min', type=float, default=None)
+    parser.add_argument('--goal-loss-max', dest='goal_loss_max', type=float, default=None)
+    parser.add_argument('--nc', type=int, default=1, help='Num channels')
+    parser.add_argument('--nf', type=int, default=32, help='Num features')
 
     return parser.parse_args()
 
 
-def test(C, device, test_set, test_loader, criterion, verbose=True, cp_path=None):
+def test(C, device, test_set, test_loader, criterion, acc_fun, verbose=True, cp_path=None):
     ###
     # Test
     ###
@@ -54,7 +56,7 @@ def test(C, device, test_set, test_loader, criterion, verbose=True, cp_path=None
         y_hat = C(X)
         loss = criterion(y_hat, y)
 
-        running_accuracy += binary_accuracy(y_hat, y, avg=False).item()
+        running_accuracy += acc_fun(y_hat, y, avg=False)
         running_loss += loss.item()
 
     test_loss = running_loss / len(test_loader)
@@ -63,17 +65,32 @@ def test(C, device, test_set, test_loader, criterion, verbose=True, cp_path=None
     print("Test loss: {}".format(test_loss))
     print("Test accuracy: {}".format(test_accuracy))
 
-    return {'acc': test_accuracy, 'loss': test_loss}
+    return {'acc': test_accuracy.item(), 'loss': test_loss}
 
 
 def main():
     args = parse_args()
     device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 
-    name = 'classifier.simple.{}v{}'.format(args.pos_class, args.neg_class) if args.name is None else args.name
+    name = 'classifier.{}'.format(args.dataset_name) if args.name is None else args.name
 
-    full_dataset = get_mnist(args.data_dir, args.image_size, train=True)
-    dataset = BinaryDataset(full_dataset, args.pos_class, args.neg_class)
+    if args.dataset_name == 'fashion-mnist':
+        get_dataset = get_fashion_mnist
+    elif args.dataset_name == 'mnist':
+        get_dataset = get_mnist
+    else:
+        print('Dataset {} not supported'.format(args.dataset_name))
+        exit(-1)
+
+    dataset = get_dataset(args.data_dir, args.image_size, train=True)
+    num_classes = dataset.targets.unique().size()
+
+    binary_classification = args.pos_class is not None and args.neg_class is not None
+
+    if binary_classification:
+        name = '{}.{}v{}'.format(name, args.pos_class, args.neg_class) if args.name is None else args.name
+        num_classes = 2
+        dataset = BinaryDataset(dataset, args.pos_class, args.neg_class)
 
     train_set, val_set = torch.utils.data.random_split(dataset,
                                                        [int(5/6*len(dataset)), len(dataset) - int(5/6*len(dataset))])
@@ -88,23 +105,29 @@ def main():
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=args.batch_size, shuffle=True)
 
-    full_test_set = get_mnist(args.data_dir, args.image_size, train=False)
-    test_set = BinaryDataset(full_test_set, args.pos_class, args.neg_class)
+    test_set = get_dataset(args.data_dir, args.image_size, train=False)
+    if binary_classification:
+        test_set = BinaryDataset(test_set, args.pos_class, args.neg_class)
+
     test_loader = torch.utils.data.DataLoader(
         test_set, batch_size=args.batch_size, shuffle=False)
 
-    print(torch.bincount(train_set.dataset.targets[train_set.indices].type(torch.uint8)))
-    print(torch.bincount(test_set.targets.type(torch.uint8)))
-
     model_params = {
-        'nc': 1,
-        'nf': 1,
+        'nc': args.nc,
+        'nf': args.nf,
+        'n_classes': num_classes
     }
 
-    C = Classifier(model_params['nc'], model_params['nf']).to(device)
+    C = Classifier(model_params['nc'], model_params['nf'], model_params['n_classes']).to(device)
     print(C)
     opt = optim.Adam(C.parameters(), lr=args.lr)
-    criterion = nn.BCELoss()
+
+    if binary_classification:
+        criterion = nn.BCELoss()
+        acc_fun = binary_accuracy
+    else:
+        criterion = nn.CrossEntropyLoss()
+        acc_fun = multiclass_accuracy
 
     best_loss = float('inf')
     best_epoch = 0
@@ -141,7 +164,7 @@ def main():
                 print('[%d/%d][%d/%d]\tloss: %.4f\tAcc: %.4f'
                       % (epoch + 1, args.epochs, i + 1, len(train_loader), loss.item(),
                          binary_accuracy(y_hat, y, avg=True)))
-                test_stats = test(C, device, test_set, test_loader, criterion, cp_path=None, verbose=False)
+                test_stats = test(C, device, test_set, test_loader, criterion, acc_fun, cp_path=None, verbose=False)
                 if args.goal_loss_min <= test_stats['loss'] <= args.goal_loss_max:
                     name_with_acc = '{}.{}'.format(name, '{}'.format(round(test_stats['loss'] * 100)))
                     cp_path = checkpoint(C, name_with_acc, model_params, {'test': test_stats}, args,
@@ -157,7 +180,7 @@ def main():
 
                 C.train()
 
-            running_accuracy += binary_accuracy(y_hat, y, avg=False)
+            running_accuracy += acc_fun(y_hat, y, avg=False)
             running_loss += loss.item()
 
         epoch_loss = running_loss / len(train_loader)
@@ -181,7 +204,7 @@ def main():
             y_hat = C(X)
             loss = criterion(y_hat, y)
 
-            running_accuracy += binary_accuracy(y_hat, y, avg=False)
+            running_accuracy += acc_fun(y_hat, y, avg=False)
             running_loss += loss.item()
 
         epoch_loss = running_loss / len(val_loader)
@@ -205,7 +228,7 @@ def main():
                 if early_stop_tracker == args.early_stop:
                     early_stop = True
 
-    test_stats = test(C, device, test_set, test_loader, criterion, cp_path=cp_path)
+    test_stats = test(C, device, test_set, test_loader, criterion, acc_fun, cp_path=cp_path)
     cp_path = checkpoint(C, name, model_params, {'test': test_stats}, args,
                          output_dir=args.out_dir)
 

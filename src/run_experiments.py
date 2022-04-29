@@ -7,13 +7,13 @@ import numpy as np
 import torch
 
 from config import read_config
-from datasets import get_mnist
+from datasets import get_mnist, get_fashion_mnist
 from binary_dataset import BinaryDataset
 from discriminator import Discriminator
 from generator import Generator
 from utils import weights_init
 from train_gan import train
-from loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary
+from loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
 from checkpoint_utils import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
 
 
@@ -26,11 +26,15 @@ def parse_args():
 
 
 def load_dataset(config):
-    if config["name"].lower() != "mnist":
+    if config["name"].lower() != "mnist" and config["name"].lower() != "fashion-mnist":
         print("{} dataset not supported".format(config["name"]))
         exit(-1)
 
-    dataset = get_mnist(config["dir"])
+    if config["name"].lower() == "mnist":
+        dataset = get_mnist(config["dir"])
+    else:
+        dataset = get_fashion_mnist(config["dir"])
+
     num_classes = dataset.targets.unique().size()
 
     if "binary" in config:
@@ -40,6 +44,8 @@ def load_dataset(config):
 
         dataset = BinaryDataset(dataset, pos_class, neg_class)
         print("Loaded {} dataset for binary classification ({} vs. {})".format(config["name"], pos_class, neg_class))
+
+    print("Dataset with {} classes".format(num_classes))
 
     return dataset, num_classes
 
@@ -71,7 +77,7 @@ def create_checkpoint_dir(config):
     return path
 
 
-def train_modified_gan(config, dataset, cp_dir, gan_path, classifier_path, weight, fixed_noise, device):
+def train_modified_gan(config, dataset, cp_dir, gan_path, classifier_path, weight, fixed_noise, num_classes, device):
     print("Running experiment with classifier {} and weight {} ...".format(classifier_path, weight))
 
     classifier_name = '.'.join(os.path.basename(classifier_path).split('.')[:-1])
@@ -83,7 +89,11 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, classifier_path, weigh
     C = construct_classifier_from_checkpoint(classifier_path, device=device)[0]
     G, D, g_optim, d_optim = construct_gan_from_checkpoint(gan_path, device=device)
     d_crit = DiscriminatorLoss()
-    g_crit = NewGeneratorLossBinary(C, beta=weight)
+
+    if num_classes == 2:
+        g_crit = NewGeneratorLossBinary(C, beta=weight)
+    else:
+        g_crit = NewGeneratorLoss(C, beta=weight)
 
     stats, images, latest_checkpoint_dir = train(
         config, dataset, device, n_epochs, batch_size,
@@ -120,7 +130,7 @@ def main():
         arr = np.load(config['fixed-noise'])
         fixed_noise = torch.Tensor(arr).to(device)
     else:
-        fixed_noise = torch.randn(config['fixed-noise-size'], G.nz, 1, 1, device=device)
+        fixed_noise = torch.randn(config['fixed-noise'], G.nz, 1, 1, device=device)
         with open(os.path.join(cp_dir, 'fixed_noise.npy'), 'wb') as f:
             np.save(f, fixed_noise.cpu().numpy())
 
@@ -146,7 +156,8 @@ def main():
     weights = config['train']['modified-gan']['weight']
 
     for c_path, weight in itertools.product(classifier_paths, weights):
-        train_modified_gan(config, dataset, cp_dir, latest_checkpoint_dir, c_path, weight, fixed_noise, device)
+        train_modified_gan(config, dataset, cp_dir, latest_checkpoint_dir,
+                           c_path, weight, fixed_noise, num_classes, device)
 
 
 if __name__ == "__main__":

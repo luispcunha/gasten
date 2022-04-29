@@ -43,7 +43,7 @@ class NewGeneratorLoss(GeneratorLoss):
 
         c_output = self.classifier(fake_data)
         top_2 = torch.topk(c_output, 2, dim=1).values
-        term_2 = top_2[:, 0] - top_2[:, 1]
+        term_2 = 2 * (top_2[:, 0] - top_2[:, 1]).mean()
 
         loss = (1 - self.beta) * term_1 + self.beta * term_2
 

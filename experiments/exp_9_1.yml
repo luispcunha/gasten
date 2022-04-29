@@ -1,0 +1,41 @@
+name: "exp_9_4"
+out-dir: "/content/drive/MyDrive/thesis/out"
+fixed-noise: 64
+
+dataset:
+  dir: "data"
+  name: "mnist"
+  binary:
+   pos: 9
+   neg: 4
+
+model:
+  nc: 1
+  nz: 100
+  ngf: 64
+  ndf: 64
+
+optimizer:
+  lr: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+
+train:
+  original-gan:
+    epochs: 50
+    batch-size: 64
+  modified-gan:
+    epochs: 50
+    batch-size: 64
+    classifier:
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.mnist.8v3.pth"
+    weight:
+      - 0.5
+      - 0.55
+      - 0.6
+      - 0.65
+      - 0.7
+      - 0.75
+
+
+

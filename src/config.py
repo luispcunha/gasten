@@ -4,7 +4,7 @@ from schema import Schema, SchemaError, Optional, And, Or
 
 
 def valid_dataset(name):
-    valid_ds = {"mnist"}
+    valid_ds = {"mnist", "fashion-mnist"}
     return name.lower() in valid_ds
 
 

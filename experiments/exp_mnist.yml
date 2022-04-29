@@ -1,0 +1,49 @@
+name: "exp1_7v1"
+out-dir: "/content/drive/MyDrive/thesis/out"
+fixed-noise: 64
+
+dataset:
+  dir: "data"
+  name: "mnist"
+  binary:
+    pos: 7
+    neg: 1
+
+model:
+  nc: 1
+  nz: 100
+  ngf: 64
+  ndf: 64
+
+optimizer:
+  lr: 0.0002
+  beta1: 0.5
+  beta2: 0.999
+
+train:
+  original-gan:
+    epochs: 50
+    batch-size: 64
+  modified-gan:
+    epochs: 50
+    batch-size: 64
+    classifier:
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.7v1.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.7v1.60.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.7v1.71.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.7v1.80.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.7v1.90.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.7v1.96.pth"
+    weight:
+      - 0.1
+      - 0.2
+      - 0.3
+      - 0.4
+      - 0.5
+      - 0.6
+      - 0.7
+      - 0.8
+      - 0.9
+
+
+
