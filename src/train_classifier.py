@@ -16,10 +16,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', dest='data_dir', default='../data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir', default='../out', help='Path to generated files')
-    parser.add_argument('--name', dest='name', default=None, help='Name of the classifier for output files')
-    parser.add_argument('--dataset', dest='dataset_name', default='fashion-mnist', help='Dataset (mnist or fashion-mnist)')
-    parser.add_argument('--pos', dest='pos_class', default=None, type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=None, type=int, help='Negative class for binary classification')
+    parser.add_argument('--name', dest='name', default='test_fid', help='Name of the classifier for output files')
+    parser.add_argument('--dataset', dest='dataset_name', default='mnist', help='Dataset (mnist or fashion-mnist)')
+    parser.add_argument('--pos', dest='pos_class', default=7, type=int, help='Positive class for binary classification')
+    parser.add_argument('--neg', dest='neg_class', default=1, type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--image-size', dest='image_size', type=int, default=28, help='Height / width of the images')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs to train for')
@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--goal-loss-min', dest='goal_loss_min', type=float, default=None)
     parser.add_argument('--goal-loss-max', dest='goal_loss_max', type=float, default=None)
     parser.add_argument('--nc', type=int, default=1, help='Num channels')
-    parser.add_argument('--nf', type=int, default=32, help='Num features')
+    parser.add_argument('--nf', type=int, default=1, help='Num features')
 
     return parser.parse_args()
 

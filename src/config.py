@@ -1,5 +1,6 @@
 import os
 import yaml
+import numpy as np
 from schema import Schema, SchemaError, Optional, And, Or
 
 
@@ -8,10 +9,15 @@ def valid_dataset(name):
     return name.lower() in valid_ds
 
 
+def gen_seed():
+    return np.random.randint(100000)
+
+
 config_schema = Schema({
     "name": str,
     "out-dir": os.path.exists,
     "fixed-noise": Or(str, int),
+    Optional("seed", default=10): int,
     "dataset": {
         "dir": str,
         "name": And(str, valid_dataset),
@@ -34,6 +40,7 @@ config_schema = Schema({
             "batch-size": int,
         }),
         "modified-gan": {
+            Optional("seed", default=gen_seed): int,
             "epochs": int,
             "batch-size": int,
             "classifier": [And(str, os.path.exists)],

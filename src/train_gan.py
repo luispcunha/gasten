@@ -74,6 +74,10 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
             # Discriminator
             ###
             D.zero_grad()
+            print(data[1])
+
+            if i > 10:
+                break
 
             # Real data batch
             real_data = data[0].to(device)

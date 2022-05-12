@@ -3,6 +3,7 @@ import argparse
 from datetime import datetime
 import itertools
 import numpy as np
+import random
 
 import torch
 
@@ -77,7 +78,7 @@ def create_checkpoint_dir(config):
     return path
 
 
-def train_modified_gan(config, dataset, cp_dir, gan_path, classifier_path, weight, fixed_noise, num_classes, device):
+def train_modified_gan(config, dataset, cp_dir, gan_path, classifier_path, weight, fixed_noise, num_classes, device, seed):
     print("Running experiment with classifier {} and weight {} ...".format(classifier_path, weight))
 
     classifier_name = '.'.join(os.path.basename(classifier_path).split('.')[:-1])
@@ -95,11 +96,30 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, classifier_path, weigh
     else:
         g_crit = NewGeneratorLoss(C, beta=weight)
 
+    set_seed(seed)
+
     stats, images, latest_checkpoint_dir = train(
         config, dataset, device, n_epochs, batch_size,
         G, g_optim, g_crit,
         D, d_optim, d_crit,
         gan_cp_dir, fixed_noise=fixed_noise)
+
+
+def set_seed(seed):
+
+    print("> Using seed: ", seed)
+
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+def setup_reprod(seed):
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    set_seed(seed)
 
 
 def main():
@@ -108,6 +128,11 @@ def main():
     config = read_config(args.config_path)
     print("Loaded experiment configuration from {}".format(args.config_path))
 
+    if "seed" not in config:
+        config["seed"] = np.random.randint(100000)
+    if "seed" not in config["train"]["modified-gan"]:
+        config["train"]["modified-gan"]["seed"] = np.random.randint(100000)
+
     device = torch.device("cuda:0" if (args.cuda and torch.cuda.is_available()) else "cpu")
     print("Using device {}".format(device))
 
@@ -115,10 +140,21 @@ def main():
     # Setup
     ###
     dataset, num_classes = load_dataset(config["dataset"])
-    G, D = construct_gan(config["model"], device)
-    g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
     g_crit = RegularGeneratorLoss()
     d_crit = DiscriminatorLoss()
+
+    # Set seed
+
+    seed = config["seed"]
+    print(seed)
+    setup_reprod(seed)
+    print(seed)
+    exit(-1)
+
+
+
+    G, D = construct_gan(config["model"], device)
+    g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
 
     cp_dir = create_checkpoint_dir(config)
     print("Storing generated artifacts in {}".format(cp_dir))
@@ -155,9 +191,11 @@ def main():
     classifier_paths = config['train']['modified-gan']['classifier']
     weights = config['train']['modified-gan']['weight']
 
+    mod_gan_seed = config['train']['modified-gan']['seed']
+
     for c_path, weight in itertools.product(classifier_paths, weights):
         train_modified_gan(config, dataset, cp_dir, latest_checkpoint_dir,
-                           c_path, weight, fixed_noise, num_classes, device)
+                           c_path, weight, fixed_noise, num_classes, device, mod_gan_seed)
 
 
 if __name__ == "__main__":
