@@ -3,12 +3,11 @@ import torch.nn as nn
 
 
 class Classifier(nn.Module):
-    def __init__(self, num_channels, nf, num_classes, output_feature_maps=False):
+    def __init__(self, num_channels, nf, num_classes):
         """
         output_block  if != None returns list with feature maps, final classification is in position -1
         """
         super(Classifier, self).__init__()
-        self.output_feature_maps = output_feature_maps
 
         self.blocks = nn.ModuleList()
         if nf == 1:
@@ -38,7 +37,7 @@ class Classifier(nn.Module):
             )
             self.blocks.append(classifier)
 
-    def forward(self, x):
+    def forward(self, x, output_feature_maps=False):
         intermediate_outputs = []
 
         for block in self.blocks:
@@ -48,4 +47,4 @@ class Classifier(nn.Module):
         if intermediate_outputs[-1].shape[1] == 1:
             intermediate_outputs[-1] = intermediate_outputs[-1].flatten()
 
-        return intermediate_outputs if self.output_feature_maps else intermediate_outputs[-1]
+        return intermediate_outputs if output_feature_maps else intermediate_outputs[-1]

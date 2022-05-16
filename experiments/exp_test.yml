@@ -1,13 +1,17 @@
-name: "exp_9_4"
-out-dir: "/content/drive/MyDrive/thesis/out"
+name: "exp_test_7v1"
+out-dir: "/content/drive/MyDrive/thesis/out_test"
 fixed-noise: 64
+test-noise:
+  n: 1000
+
+fid-stats-path: "/content/drive/MyDrive/thesis/out/mnist_stats.7v1.npz"
 
 dataset:
   dir: "data"
   name: "mnist"
   binary:
-   pos: 9
-   neg: 4
+    pos: 7
+    neg: 1
 
 model:
   nc: 1
@@ -22,20 +26,15 @@ optimizer:
 
 train:
   original-gan:
-    epochs: 50
+    epochs: 2
     batch-size: 64
   modified-gan:
-    epochs: 50
+    epochs: 5
     batch-size: 64
     classifier:
-      - "/content/drive/MyDrive/thesis/out/classifiers/classifier.mnist.8v3.pth"
+      - "/content/drive/MyDrive/thesis/out/classifiers/test_fid.pth"
     weight:
-      - 0.5
-      - 0.55
       - 0.6
-      - 0.65
-      - 0.7
-      - 0.75
 
 
 

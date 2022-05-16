@@ -6,9 +6,9 @@ from tqdm import tqdm
 from pytorch_metric_learning import samplers
 
 from datasets import get_mnist, get_fashion_mnist
-from utils import binary_accuracy, multiclass_accuracy
-from binary_dataset import BinaryDataset
-from checkpoint_utils import checkpoint, load_checkpoint
+from metrics.accuracy import binary_accuracy, multiclass_accuracy
+from datasets.utils import BinaryDataset
+from utils.checkpoint import checkpoint, load_checkpoint
 from classifier import Classifier
 
 
@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--goal-loss-min', dest='goal_loss_min', type=float, default=None)
     parser.add_argument('--goal-loss-max', dest='goal_loss_max', type=float, default=None)
     parser.add_argument('--nc', type=int, default=1, help='Num channels')
-    parser.add_argument('--nf', type=int, default=1, help='Num features')
+    parser.add_argument('--nf', type=int, default=16, help='Num features')
 
     return parser.parse_args()
 

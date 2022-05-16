@@ -16,7 +16,11 @@ def gen_seed():
 config_schema = Schema({
     "name": str,
     "out-dir": os.path.exists,
+    "fid-stats-path": os.path.exists,
     "fixed-noise": Or(str, int),
+    "test-noise": Or(And(str, os.path.exists), {
+        "n": int
+    }),
     Optional("seed", default=10): int,
     "dataset": {
         "dir": str,

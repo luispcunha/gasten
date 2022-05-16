@@ -1,9 +1,13 @@
 name: "exp1_7v1"
 out-dir: "/home/luispcunha/repos/gans/out/"
 fixed-noise: 64
+test-noise:
+  n: 1000
+
+fid-stats-path: "/home/luispcunha/repos/gans/out/mnist_stats.7v1.npz"
 
 dataset:
-  dir: "data"
+  dir: "../data"
   name: "mnist"
   binary:
     pos: 7
@@ -28,7 +32,7 @@ train:
     epochs: 5
     batch-size: 64
     classifier:
-      - "/home/luispcunha/repos/gans/out/test_fid_2.pth"
+      - "/home/luispcunha/repos/gans/out/test_fid.pth"
     weight:
       - 0.6
 
