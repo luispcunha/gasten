@@ -33,9 +33,17 @@ config_schema = Schema({
         "original-gan": Or(And(str, os.path.exists), {
             "epochs": int,
             "batch-size": int,
+            Optional("early-stop"): {
+                "delta": Or(float, int),
+                "criteria": int,
+            }
         }),
         "modified-gan": {
             Optional("seed"): int,
+            Optional("early-stop"): {
+                "delta": Or(float, int),
+                "criteria": int,
+            },
             "epochs": int,
             "batch-size": int,
             "classifier": [And(str, os.path.exists)],

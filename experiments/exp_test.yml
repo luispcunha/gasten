@@ -2,7 +2,7 @@ name: "exp_test_7v1"
 out-dir: "/content/drive/MyDrive/thesis/out_test"
 fixed-noise: 64
 test-noise:
-  n: 1000
+  n: 3000
 
 fid-stats-path: "/content/drive/MyDrive/thesis/out/mnist_stats.7v1.npz"
 
@@ -26,13 +26,16 @@ optimizer:
 
 train:
   original-gan:
-    epochs: 2
+    epochs: 20
     batch-size: 64
+    early-stop:
+      criteria: 2
+      delta: 0
   modified-gan:
-    epochs: 5
+    epochs: 20
     batch-size: 64
     classifier:
-      - "/content/drive/MyDrive/thesis/out/classifiers/test_fid.pth"
+      - "/content/drive/MyDrive/thesis/out_test/test.pth"
     weight:
       - 0.6
 

@@ -17,7 +17,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', dest='data_dir', default='../data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir', default='../out', help='Path to generated files')
-    parser.add_argument('--name', dest='name', default=None, help='Name of the classifier for output files')
+    parser.add_argument('--name', dest='name', default='test', help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name', default='mnist', help='Dataset (mnist or fashion-mnist)')
     parser.add_argument('--pos', dest='pos_class', default=7, type=int, help='Positive class for binary classification')
     parser.add_argument('--neg', dest='neg_class', default=1, type=int, help='Negative class for binary classification')

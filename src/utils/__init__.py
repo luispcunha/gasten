@@ -16,6 +16,10 @@ def create_checkpoint_path(config):
     return path
 
 
+def gen_seed(max_val=10000):
+    return np.random.randint(max_val)
+
+
 def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)

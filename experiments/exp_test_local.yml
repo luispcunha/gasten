@@ -28,6 +28,9 @@ train:
   original-gan:
     epochs: 0
     batch-size: 64
+    early-stop:
+      criteria: 2
+      delta: 0
   modified-gan:
     epochs: 5
     batch-size: 64

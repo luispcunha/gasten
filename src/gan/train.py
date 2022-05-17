@@ -14,12 +14,17 @@ def loss_terms_to_str(loss_items):
 
 
 def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_opt, d_crit, test_noise, fid_metrics,
+          early_stop_crit=None, early_stop_key=None,
           checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, verbose=True):
     fixed_noise = torch.randn(64, G.nz, 1, 1, device=device) if fixed_noise is None else fixed_noise
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     images = []
     stats = {
+        'epoch': 0,
+        'early_stop_tracker': 0,
+        'best_epoch': 0,
+        'best_epoch_metric': float('inf'),
         "G_losses_epoch": [],
         "G_losses": [],
         "D_losses_epoch": [],
@@ -45,7 +50,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
     for metric_name in fid_metrics.keys():
         stats[metric_name] = []
 
-    running_stats = {}
+    running_stats = {
+    }
 
     with torch.no_grad():
         fake = G(fixed_noise).detach().cpu()
@@ -54,11 +60,14 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
 
     # Storing state before starting training
     latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=0, output_dir=checkpoint_dir)
+    best_cp = latest_cp
     checkpoint_images(fake, 0, output_dir=checkpoint_dir)
 
     if verbose:
         print("Starting training loop...")
     for epoch in range(n_epochs):
+        stats['epoch'] = epoch
+
         if verbose:
             print("\t> Epoch {}".format(epoch + 1))
 
@@ -158,13 +167,13 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
         images.append(img)
 
         # Compute epoch FID on fixed set
-        batch_size_2 = 256
         start_idx = 0
-        num_batches = math.ceil(test_noise.size(0) / batch_size_2)
+        num_batches = math.ceil(test_noise.size(0) / batch_size)
 
         for _ in tqdm(range(num_batches), desc="Evaluating"):
-            batch_z = test_noise[start_idx:start_idx + min(batch_size_2, test_noise.size(0) - start_idx)]
-            batch_gen = G(batch_z.to(device))
+            batch_z = test_noise[start_idx:start_idx + min(batch_size, test_noise.size(0) - start_idx)]
+            with torch.no_grad():
+                batch_gen = G(batch_z.to(device))
 
             for metric_name, metric in fid_metrics.items():
                 metric.update(batch_gen)
@@ -181,4 +190,17 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
             latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=epoch+1, output_dir=checkpoint_dir)
             checkpoint_images(fake, epoch + 1, output_dir=checkpoint_dir)
 
-    return stats, images, latest_cp
+        # Early stop
+        if early_stop_crit is not None and early_stop_key is not None:
+            if stats[early_stop_key][-1] < stats['best_epoch_metric']:
+                stats['early_stop_tracker'] = 0
+                stats['best_epoch'] = epoch
+                stats['best_epoch_metric'] = stats[early_stop_key][-1]
+                best_cp = latest_cp
+            else:
+                stats['early_stop_tracker'] += 1
+                print(" > Early stop tracker {}/{}".format(stats['early_stop_tracker'], early_stop_crit))
+                if stats['early_stop_tracker'] == early_stop_crit:
+                    break
+
+    return stats, images, best_cp

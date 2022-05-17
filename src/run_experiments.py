@@ -9,9 +9,10 @@ from datasets import load_dataset
 from gan.architectures.dcgan import Generator, Discriminator
 from gan.train import train
 from gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
-from utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path
+from utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed
 from utils.config import read_config
 from utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
+from utils.plot import plot_train_summary
 
 
 def parse_args():
@@ -57,13 +58,20 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
     else:
         g_crit = NewGeneratorLoss(C, beta=weight)
 
+    early_stop_key = 'conf_dist'
+    early_stop_crit = None if 'early-stop' not in config['train']['original-gan'] \
+        else config['train']['original-gan']['early-stop']['criteria']
+
     set_seed(seed)
     stats, images, latest_checkpoint_dir = train(
         config, dataset, device, n_epochs, batch_size,
         G, g_optim, g_crit,
         D, d_optim, d_crit,
         test_noise, fid_metrics,
-        gan_cp_dir, fixed_noise=fixed_noise)
+        early_stop_key=early_stop_key, early_stop_crit=early_stop_crit,
+        checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise)
+
+    plot_train_summary(stats, os.path.join(cp_dir, 'plots'))
 
 
 def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu'):
@@ -81,9 +89,9 @@ def main():
     print("Loaded experiment configuration from {}".format(args.config_path))
 
     if "seed" not in config:
-        config["seed"] = np.random.randint(100000)
+        config["seed"] = gen_seed()
     if "seed" not in config["train"]["modified-gan"]:
-        config["train"]["modified-gan"]["seed"] = np.random.randint(100000)
+        config["train"]["modified-gan"]["seed"] = gen_seed()
 
     device = torch.device("cuda:0" if (args.cuda and torch.cuda.is_available()) else "cpu")
     print("Using device {}".format(device))
@@ -91,7 +99,13 @@ def main():
     ###
     # Setup
     ###
-    dataset, num_classes = load_dataset(config["dataset"])
+    pos_class = None
+    neg_class = None
+    if "binary" in config["dataset"]:
+        pos_class = config["dataset"]["binary"]["pos"]
+        neg_class = config["dataset"]["binary"]["neg"]
+
+    dataset, num_classes, _, _ = load_dataset(config["dataset"]["name"], config["dataset"]["dir"], pos_class, neg_class)
     g_crit = RegularGeneratorLoss()
     d_crit = DiscriminatorLoss()
 
@@ -100,21 +114,20 @@ def main():
     seed = config["seed"]
     setup_reprod(seed)
 
-    if type(config['test-noise']) == str:
-        test_noise = load_z(config['test-noise'])
-        print("Loaded test noise from", config['test-noise'])
-    else:
-        test_noise, test_noise_path = create_and_store_z(
-            config['out-dir'], config['test-noise']['n'], config['model']['nz'])
-        print("Generated test noise, stored in", test_noise_path)
-
     G, D = construct_gan(config["model"], device)
     g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
 
     cp_dir = create_checkpoint_path(config)
     print("Storing generated artifacts in {}".format(cp_dir))
-
     original_gan_cp_dir = os.path.join(cp_dir, 'original')
+
+    if type(config['test-noise']) == str:
+        test_noise = load_z(config['test-noise'])
+        print("Loaded test noise from", config['test-noise'])
+    else:
+        test_noise, test_noise_path = create_and_store_z(
+            cp_dir, config['test-noise']['n'], config['model']['nz'])
+        print("Generated test noise, stored in", test_noise_path)
 
     if type(config['fixed-noise']) == str:
         arr = np.load(config['fixed-noise'])
@@ -138,15 +151,21 @@ def main():
         fid_metrics = {
             'fid': original_fid
         }
+        early_stop_key = 'fid'
+        early_stop_crit = None if 'early-stop' not in config['train']['original-gan'] \
+            else config['train']['original-gan']['early-stop']['criteria']
 
-        stats, images, latest_checkpoint_dir = train(
+        stats, images, best_cp_dir = train(
             config, dataset, device, n_epochs, batch_size,
             G, g_optim, g_crit,
             D, d_optim, d_crit,
             test_noise, fid_metrics,
-            original_gan_cp_dir, fixed_noise=fixed_noise)
+            early_stop_crit=early_stop_crit, early_stop_key=early_stop_key,
+            checkpoint_dir=original_gan_cp_dir, fixed_noise=fixed_noise)
+
+        plot_train_summary(stats, os.path.join(original_gan_cp_dir, 'plots'))
     else:
-        latest_checkpoint_dir = config['train']['original-gan']
+        best_cp_dir = config['train']['original-gan']
 
     print("Start train mod gan")
 
@@ -183,7 +202,7 @@ def main():
         }
 
         for weight in weights:
-            train_modified_gan(config, dataset, cp_dir, latest_checkpoint_dir, test_noise, fid_metrics,
+            train_modified_gan(config, dataset, cp_dir, best_cp_dir, test_noise, fid_metrics,
                                C, c_path, weight, fixed_noise, num_classes, device, mod_gan_seed)
 
 
