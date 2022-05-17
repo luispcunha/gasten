@@ -1,7 +1,34 @@
 import os
+from datetime import datetime
+import random
 import torch
 import torch.nn as nn
 import numpy as np
+
+
+def create_checkpoint_path(config):
+    path = os.path.join(os.curdir,
+                        config['out-dir'],
+                        '{}_{}'.format(config['name'], datetime.now().strftime('%m-%dT%H:%M:%S')))
+
+    os.makedirs(path, exist_ok=True)
+
+    return path
+
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+
+
+def setup_reprod(seed):
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    set_seed(seed)
 
 
 def weights_init(m):

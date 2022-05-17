@@ -1,18 +1,15 @@
 import os
 import argparse
-from datetime import datetime
 import numpy as np
-import random
 
 import torch
 
 from metrics import fid, LossSecondTerm
-from datasets import get_mnist, get_fashion_mnist
-from datasets.utils import BinaryDataset
+from datasets import load_dataset
 from gan.architectures.dcgan import Generator, Discriminator
 from gan.train import train
 from gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
-from utils import weights_init, create_and_store_z, load_z
+from utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path
 from utils.config import read_config
 from utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
 
@@ -23,31 +20,6 @@ def parse_args():
     parser.add_argument("--no-cuda", dest="cuda", action="store_false", default=True)
 
     return parser.parse_args()
-
-
-def load_dataset(config):
-    if config["name"].lower() != "mnist" and config["name"].lower() != "fashion-mnist":
-        print("{} dataset not supported".format(config["name"]))
-        exit(-1)
-
-    if config["name"].lower() == "mnist":
-        dataset = get_mnist(config["dir"])
-    else:
-        dataset = get_fashion_mnist(config["dir"])
-
-    num_classes = dataset.targets.unique().size()
-
-    if "binary" in config:
-        num_classes = 2
-        pos_class = config["binary"]["pos"]
-        neg_class = config["binary"]["neg"]
-
-        dataset = BinaryDataset(dataset, pos_class, neg_class)
-        print("Loaded {} dataset for binary classification ({} vs. {})".format(config["name"], pos_class, neg_class))
-
-    print("Dataset with {} classes".format(num_classes))
-
-    return dataset, num_classes
 
 
 def construct_gan(config, device):
@@ -65,16 +37,6 @@ def construct_optimizers(config, G, D):
     d_optim = torch.optim.Adam(D.parameters(), lr=config["lr"], betas=(config["beta1"], config["beta2"]))
 
     return g_optim, d_optim
-
-
-def create_checkpoint_dir(config):
-    path = os.path.join(os.curdir,
-                        config['out-dir'],
-                        '{}_{}'.format(config['name'], datetime.now().strftime('%m-%dT%H:%M:%S')))
-
-    os.makedirs(path, exist_ok=True)
-
-    return path
 
 
 def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metrics,
@@ -104,31 +66,8 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         gan_cp_dir, fixed_noise=fixed_noise)
 
 
-def set_seed(seed):
-
-    print("> Using seed: ", seed)
-
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.cuda.manual_seed(seed)
-    np.random.seed(seed)
-    random.seed(seed)
-
-
-def setup_reprod(seed):
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-    set_seed(seed)
-
-
-def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, num_workers=None, device='cpu'):
-
-    if num_workers is None:
-        num_avail_cpus = len(os.sched_getaffinity(0))
-        num_workers = min(num_avail_cpus, 8)
-
-    dataloader = torch.utils.data.DataLoader(dset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu'):
+    dataloader = torch.utils.data.DataLoader(dset, batch_size=batch_size, shuffle=False)
 
     m, s = fid.calculate_activation_statistics_dataloader(dataloader, get_feature_map_fn, dims=dims, device=device)
 
@@ -172,7 +111,7 @@ def main():
     G, D = construct_gan(config["model"], device)
     g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
 
-    cp_dir = create_checkpoint_dir(config)
+    cp_dir = create_checkpoint_path(config)
     print("Storing generated artifacts in {}".format(cp_dir))
 
     original_gan_cp_dir = os.path.join(cp_dir, 'original')

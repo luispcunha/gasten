@@ -45,11 +45,11 @@ def load_checkpoint(path, model, device=None, optimizer=None):
 def construct_classifier_from_checkpoint(path, device=None, optimizer=False):
     cp = torch.load(path, map_location=device)
 
-    print("Loading model from {} ...".format(path))
+    print(" > Loading model from {} ...".format(path))
 
     model_params = cp['params']
-    print('Model', cp['name'])
-    print('\t> Params: ', model_params)
+    print('\t. Model', cp['name'])
+    print('\t. Params: ', model_params)
 
     n_classes = model_params['n_classes'] if 'n_classes' in model_params else 2
 

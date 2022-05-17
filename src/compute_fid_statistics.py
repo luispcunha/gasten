@@ -24,7 +24,7 @@ parser.add_argument('--num-workers', type=int,
                           'Defaults to `min(8, num_cpus)`'))
 parser.add_argument('--device', type=str, default=None,
                     help='Device to use. Like cuda, cuda:0 or cpu')
-parser.add_argument('--name', dest='name', default='mnist.my_classifier.stats', help='name of gen .npz file')
+parser.add_argument('--name', dest='name', default=None, help='name of gen .npz file')
 
 
 def main():
