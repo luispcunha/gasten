@@ -1,6 +1,6 @@
 import os
 import yaml
-from src.datasets import valid_dataset
+from gans.datasets import valid_dataset
 from schema import Schema, SchemaError, Optional, And, Or
 
 

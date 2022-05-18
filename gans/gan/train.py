@@ -1,6 +1,6 @@
 import torch
 import torchvision.utils as vutils
-from src.utils.checkpoint import checkpoint_gan, checkpoint_images
+from gans.utils.checkpoint import checkpoint_gan, checkpoint_images
 from tqdm import tqdm
 import math
 
@@ -11,6 +11,27 @@ def loss_terms_to_str(loss_items):
         result += '%s: %.4f ' % (key, value)
 
     return result
+
+def evaluate(G, fid_metrics, stats, batch_size, test_noise, device):
+    # Compute epoch FID on fixed set
+    start_idx = 0
+    num_batches = math.ceil(test_noise.size(0) / batch_size)
+
+    for _ in tqdm(range(num_batches), desc="Evaluating"):
+        batch_z = test_noise[start_idx:start_idx + min(batch_size, test_noise.size(0) - start_idx)]
+        with torch.no_grad():
+            batch_gen = G(batch_z.to(device))
+
+        for metric_name, metric in fid_metrics.items():
+            metric.update(batch_gen)
+
+        start_idx += batch_z.shape[0]
+
+    for metric_name, metric in fid_metrics.items():
+        result = metric.finalize()
+        metric.reset()
+        stats[metric_name].append(result)
+        print(metric_name, " = ", result)
 
 
 def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_opt, d_crit, test_noise, fid_metrics,
@@ -59,6 +80,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
     images.append(img)
 
     # Storing state before starting training
+    evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
     latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=0, output_dir=checkpoint_dir)
     best_cp = latest_cp
     checkpoint_images(fake, 0, output_dir=checkpoint_dir)
@@ -167,28 +189,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
         images.append(img)
 
         # Compute epoch FID on fixed set
-        start_idx = 0
-        num_batches = math.ceil(test_noise.size(0) / batch_size)
-
-        for _ in tqdm(range(num_batches), desc="Evaluating"):
-            batch_z = test_noise[start_idx:start_idx + min(batch_size, test_noise.size(0) - start_idx)]
-            with torch.no_grad():
-                batch_gen = G(batch_z.to(device))
-
-            for metric_name, metric in fid_metrics.items():
-                metric.update(batch_gen)
-
-            start_idx += batch_z.shape[0]
-
-        for metric_name, metric in fid_metrics.items():
-            result = metric.finalize()
-            metric.reset()
-            stats[metric_name].append(result)
-            print(metric_name, " = ", result)
-
-        if ((epoch + 1) % checkpoint_every) == 0:
-            latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=epoch+1, output_dir=checkpoint_dir)
-            checkpoint_images(fake, epoch + 1, output_dir=checkpoint_dir)
+        evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
 
         # Early stop
         if early_stop_crit is not None and early_stop_key is not None:

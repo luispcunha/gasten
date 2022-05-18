@@ -4,15 +4,15 @@ import numpy as np
 
 import torch
 
-from metrics import fid, LossSecondTerm
-from datasets import load_dataset
-from gan.architectures.dcgan import Generator, Discriminator
-from gan.train import train
-from gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
-from utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed
-from utils.config import read_config
-from utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
-from utils.plot import plot_train_summary
+from gans.metrics import fid, LossSecondTerm
+from gans.datasets import load_dataset
+from gans.gan.architectures.dcgan import Generator, Discriminator
+from gans.gan.train import train
+from gans.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
+from gans.utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed
+from gans.utils.config import read_config
+from gans.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
+from gans.utils.plot import plot_train_summary
 
 
 def parse_args():

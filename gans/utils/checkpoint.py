@@ -3,8 +3,8 @@ import json
 import torch
 import torchvision.utils as vutils
 import torch.optim as optim
-from src.classifier import Classifier
-from src.gan.architectures.dcgan import Generator, Discriminator
+from gans.classifier import Classifier
+from gans.gan.architectures.dcgan import Generator, Discriminator
 
 
 def checkpoint(model, model_name, model_params, train_stats, args, output_dir=None, optimizer=None):

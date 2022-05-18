@@ -7,7 +7,7 @@ test-noise:
 fid-stats-path: "/home/luispcunha/repos/gans/out/mnist_stats.7v1.npz"
 
 dataset:
-  dir: "../data"
+  dir: "data"
   name: "mnist"
   binary:
     pos: 7
