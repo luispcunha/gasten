@@ -26,7 +26,7 @@ optimizer:
 
 train:
   original-gan:
-    epochs: 0
+    epochs: 2
     batch-size: 64
     early-stop:
       criteria: 2

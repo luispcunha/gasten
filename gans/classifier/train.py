@@ -15,6 +15,7 @@ from gans.classifier.train import train, evaluate
 
 
 def evaluate(C, device, dataloader, criterion, acc_fun, verbose=True, desc='Validate', header=None):
+    training = C.training
     C.eval()
     running_loss = 0.0
     running_accuracy = 0.0
@@ -29,6 +30,7 @@ def evaluate(C, device, dataloader, criterion, acc_fun, verbose=True, desc='Vali
         X = X.to(device)
         y = y.to(device)
 
+        torch.no_grad()
         y_hat = C(X)
         loss = criterion(y_hat, y)
 
@@ -37,6 +39,9 @@ def evaluate(C, device, dataloader, criterion, acc_fun, verbose=True, desc='Vali
 
     acc = running_accuracy / len(dataloader.dataset)
     loss = running_loss / len(dataloader.dataset)
+
+    if training:
+        C.train()
 
     return acc.item(), loss
 
@@ -53,6 +58,8 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
         'val_loss': []
     }
 
+    C.train()
+
     for epoch in range(args.epochs):
         stats['cur_epoch'] = epoch
 
@@ -61,8 +68,6 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
         ###
         # Train
         ###
-        C.train()
-
         running_accuracy = 0.0
         running_loss = 0.0
 
@@ -103,8 +108,6 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
                     print('')
                     print(' > Saved checkpoint to {}'.format(cp_path))
                     exit(-1)
-
-                C.train()
 
             running_accuracy += acc_fun(y_hat, y, avg=False)
             running_loss += loss.item() * X.shape[0]

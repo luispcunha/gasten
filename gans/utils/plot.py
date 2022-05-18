@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 
 def plot_train_summary(data, out_path):
+    os.makedirs(out_path, exist_ok=True)
+
     plt.plot(data['G_losses_epoch'], label='G loss')
     plt.plot(data['D_losses_epoch'], label='D loss')
 
@@ -45,7 +47,7 @@ def plot_train_summary(data, out_path):
     plt.ylabel('fid')
     plt.title('fid')
     plt.legend()
-    plt.savefig(os.path.join(out_path, '{}.fid.png'))
+    plt.savefig(os.path.join(out_path, 'fid.png'))
     plt.clf()
 
     if 'focd' in data:
@@ -54,7 +56,7 @@ def plot_train_summary(data, out_path):
         plt.ylabel('f*d')
         plt.title('f*d')
         plt.legend()
-        plt.savefig(os.path.join(out_path, '{}.f*d.png'))
+        plt.savefig(os.path.join(out_path, 'f*d.png'))
         plt.clf()
 
     if 'conf_dist' in data:
@@ -63,6 +65,6 @@ def plot_train_summary(data, out_path):
         plt.ylabel('conf_dist')
         plt.title('conf_dist')
         plt.legend()
-        plt.savefig(os.path.join(out_path, '{}.conf_dist.png'))
+        plt.savefig(os.path.join(out_path, 'conf_dist.png'))
         plt.clf()
 

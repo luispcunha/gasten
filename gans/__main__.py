@@ -59,8 +59,8 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         g_crit = NewGeneratorLoss(C, beta=weight)
 
     early_stop_key = 'conf_dist'
-    early_stop_crit = None if 'early-stop' not in config['train']['original-gan'] \
-        else config['train']['original-gan']['early-stop']['criteria']
+    early_stop_crit = None if 'early-stop' not in config['train']['modified-gan'] \
+        else config['train']['modified-gan']['early-stop']['criteria']
 
     set_seed(seed)
     stats, images, latest_checkpoint_dir = train(
@@ -71,7 +71,7 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         early_stop_key=early_stop_key, early_stop_crit=early_stop_crit,
         checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise)
 
-    plot_train_summary(stats, os.path.join(cp_dir, 'plots'))
+    plot_train_summary(stats, os.path.join(gan_cp_dir, 'plots'))
 
 
 def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu'):

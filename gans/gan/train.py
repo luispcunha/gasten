@@ -1,6 +1,6 @@
 import torch
 import torchvision.utils as vutils
-from gans.utils.checkpoint import checkpoint_gan, checkpoint_images
+from gans.utils.checkpoint import checkpoint_gan, checkpoint_images, construct_gan_from_checkpoint
 from tqdm import tqdm
 import math
 
@@ -12,7 +12,11 @@ def loss_terms_to_str(loss_items):
 
     return result
 
+
 def evaluate(G, fid_metrics, stats, batch_size, test_noise, device):
+    training = G.training
+    G.eval()
+
     # Compute epoch FID on fixed set
     start_idx = 0
     num_batches = math.ceil(test_noise.size(0) / batch_size)
@@ -33,10 +37,14 @@ def evaluate(G, fid_metrics, stats, batch_size, test_noise, device):
         stats[metric_name].append(result)
         print(metric_name, " = ", result)
 
+    if training:
+        G.train()
+
 
 def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_opt, d_crit, test_noise, fid_metrics,
           early_stop_crit=None, early_stop_key=None,
           checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, verbose=True):
+
     fixed_noise = torch.randn(64, G.nz, 1, 1, device=device) if fixed_noise is None else fixed_noise
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
@@ -84,6 +92,9 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
     latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=0, output_dir=checkpoint_dir)
     best_cp = latest_cp
     checkpoint_images(fake, 0, output_dir=checkpoint_dir)
+
+    G.train()
+    D.train()
 
     if verbose:
         print("Starting training loop...")
@@ -184,12 +195,18 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
 
         # Save G's output on fixed noise to analyse its evolution
         with torch.no_grad():
+            G.eval()
             fake = G(fixed_noise).detach().cpu()
+            G.train()
         img = vutils.make_grid(fake, padding=2, normalize=True)
         images.append(img)
 
         # Compute epoch FID on fixed set
         evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
+
+        if ((epoch + 1) % checkpoint_every) == 0:
+            latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=epoch + 1, output_dir=checkpoint_dir)
+            checkpoint_images(fake, epoch + 1, output_dir=checkpoint_dir)
 
         # Early stop
         if early_stop_crit is not None and early_stop_key is not None:
