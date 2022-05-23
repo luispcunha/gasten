@@ -10,7 +10,7 @@ from stg.datasets import load_dataset
 from stg.gan.architectures.dcgan import Generator, Discriminator
 from stg.gan.train import train
 from stg.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
-from stg.utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed
+from stg.utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed, seed_worker
 from stg.utils.config import read_config
 from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
 from stg.utils.plot import plot_train_summary
@@ -20,9 +20,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", dest="config_path",
                         required=True, help="Config file")
-    parser.add_argument("--no-cuda", dest="cuda",
-                        action="store_false", default=True)
-
     return parser.parse_args()
 
 
@@ -82,9 +79,9 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
     plot_train_summary(stats, os.path.join(gan_cp_dir, 'plots'))
 
 
-def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu'):
+def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu', num_workers=0):
     dataloader = torch.utils.data.DataLoader(
-        dset, batch_size=batch_size, shuffle=False)
+        dset, batch_size=batch_size, shuffle=False, num_workers=num_workers, worker_init_fn=seed_worker)
 
     m, s = fid.calculate_activation_statistics_dataloader(
         dataloader, get_feature_map_fn, dims=dims, device=device)
@@ -104,9 +101,10 @@ def main():
     if "seed" not in config["train"]["modified-gan"]:
         config["train"]["modified-gan"]["seed"] = gen_seed()
 
-    device = torch.device("cuda:0" if (
-        args.cuda and torch.cuda.is_available()) else "cpu")
+    device = torch.device(config["device"])
     print("Using device {}".format(device))
+
+    print(config)
 
     ###
     # Setup
@@ -122,8 +120,10 @@ def main():
     g_crit = RegularGeneratorLoss()
     d_crit = DiscriminatorLoss()
 
-    # Set seed
+    num_workers = config["num-workers"]
+    print(" > Num workers", num_workers)
 
+    # Set seedut
     seed = config["seed"]
     setup_reprod(seed)
 
@@ -205,7 +205,7 @@ def main():
 
         print(" > Computing statistics using original dataset")
         mu, sigma = compute_dataset_fid_stats(
-            dataset, get_feature_map_fn, dims, device=device)
+            dataset, get_feature_map_fn, dims, device=device, num_workers=num_workers)
         print("   ... done")
 
         our_class_fid = fid.FID(get_feature_map_fn, dims,

@@ -12,7 +12,9 @@ config_schema = Schema({
     "test-noise": Or(And(str, os.path.exists), {
         "n": int
     }),
-    Optional("seed", default=10): int,
+    Optional("device", default="cpu"): str,
+    Optional("seed"): int,
+    Optional("num-workers", default=0): int,
     "dataset": {
         "dir": str,
         "name": And(str, valid_dataset),
@@ -64,4 +66,3 @@ def read_config(path):
         raise se
 
     return config
-

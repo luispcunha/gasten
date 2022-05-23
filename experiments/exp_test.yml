@@ -4,7 +4,11 @@ fixed-noise: 100
 test-noise:
   n: 10000
 
-fid-stats-path: "/home/lcunha/data/stats.mnist.7v1.npz"
+seed: 8532
+device: cuda:0
+num-workers: 6
+
+fid-stats-path: "/home/lcunha/data/stats.inception.mnist.7v1.npz"
 
 dataset:
   dir: "../data"

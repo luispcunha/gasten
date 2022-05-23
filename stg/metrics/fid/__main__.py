@@ -87,8 +87,12 @@ def main():
 
     m, s = fid.calculate_activation_statistics_dataloader(
         dataloader, get_feature_map_fn, dims=dims, device=device)
+
     with open(os.path.join(args.dataroot, '{}.npz'.format(name)), 'wb') as f:
         np.savez(f, mu=m, sigma=s)
+
+    print('m:', m[:10])
+    print('s:', s[0, :10])
 
 
 if __name__ == '__main__':

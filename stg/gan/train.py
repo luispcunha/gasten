@@ -1,6 +1,7 @@
 import torch
 import torchvision.utils as vutils
-from stg.utils.checkpoint import checkpoint_gan, checkpoint_images, construct_gan_from_checkpoint
+from stg.utils.checkpoint import checkpoint_gan, checkpoint_images
+from stg.utils import seed_worker
 from tqdm import tqdm
 import math
 
@@ -22,7 +23,8 @@ def evaluate(G, fid_metrics, stats, batch_size, test_noise, device):
     num_batches = math.ceil(test_noise.size(0) / batch_size)
 
     for _ in tqdm(range(num_batches), desc="Evaluating"):
-        batch_z = test_noise[start_idx:start_idx + min(batch_size, test_noise.size(0) - start_idx)]
+        batch_z = test_noise[start_idx:start_idx +
+                             min(batch_size, test_noise.size(0) - start_idx)]
         with torch.no_grad():
             batch_gen = G(batch_z.to(device))
 
@@ -45,8 +47,11 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
           early_stop_crit=None, early_stop_key=None,
           checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, verbose=True):
 
-    fixed_noise = torch.randn(64, G.nz, 1, 1, device=device) if fixed_noise is None else fixed_noise
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    fixed_noise = torch.randn(
+        64, G.nz, 1, 1, device=device) if fixed_noise is None else fixed_noise
+    dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=batch_size, shuffle=True,
+        num_workers=config["num-workers"], worker_init_fn=seed_worker)
 
     images = []
     stats = {
@@ -89,7 +94,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
 
     # Storing state before starting training
     evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
-    latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=0, output_dir=checkpoint_dir)
+    latest_cp = checkpoint_gan(
+        G, D, g_opt, d_opt, stats, config, epoch=0, output_dir=checkpoint_dir)
     best_cp = latest_cp
     checkpoint_images(fake, 0, output_dir=checkpoint_dir)
 
@@ -167,7 +173,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
             g_opt.step()
 
             for loss_term_name, loss_term_value in g_loss_terms.items():
-                running_stats[loss_term_name] += loss_term_value * data[0].shape[0]
+                running_stats[loss_term_name] += loss_term_value * \
+                    data[0].shape[0]
                 stats[loss_term_name].append(loss_term_value)
 
             stats['G_losses'].append(g_loss.item())
@@ -191,7 +198,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
         stats["D_acc_fake_1_epoch"].append(running_D_acc_fake_1 / len(dataset))
         stats["D_acc_fake_2_epoch"].append(running_D_acc_fake_2 / len(dataset))
         for loss_term in g_crit.get_loss_terms():
-            stats['{}_epoch'.format(loss_term)].append(running_stats[loss_term] / len(dataset))
+            stats['{}_epoch'.format(loss_term)].append(
+                running_stats[loss_term] / len(dataset))
 
         # Save G's output on fixed noise to analyse its evolution
         with torch.no_grad():
@@ -205,7 +213,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
         evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
 
         if ((epoch + 1) % checkpoint_every) == 0:
-            latest_cp = checkpoint_gan(G, D, g_opt, d_opt, stats, config, epoch=epoch + 1, output_dir=checkpoint_dir)
+            latest_cp = checkpoint_gan(
+                G, D, g_opt, d_opt, stats, config, epoch=epoch + 1, output_dir=checkpoint_dir)
             checkpoint_images(fake, epoch + 1, output_dir=checkpoint_dir)
 
         # Early stop
@@ -217,7 +226,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
                 best_cp = latest_cp
             else:
                 stats['early_stop_tracker'] += 1
-                print(" > Early stop tracker {}/{}".format(stats['early_stop_tracker'], early_stop_crit))
+                print(
+                    " > Early stop tracker {}/{}".format(stats['early_stop_tracker'], early_stop_crit))
                 if stats['early_stop_tracker'] == early_stop_crit:
                     break
 
