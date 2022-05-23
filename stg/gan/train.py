@@ -1,6 +1,6 @@
 import torch
 import torchvision.utils as vutils
-from gans.utils.checkpoint import checkpoint_gan, checkpoint_images, construct_gan_from_checkpoint
+from stg.utils.checkpoint import checkpoint_gan, checkpoint_images, construct_gan_from_checkpoint
 from tqdm import tqdm
 import math
 

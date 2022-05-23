@@ -131,6 +131,12 @@ dmypy.json
 # PyCharm
 .idea/
 
+# VS Code
+.vscode/
+
 # Data
 data/
 out/
+
+# Env variables
+.env

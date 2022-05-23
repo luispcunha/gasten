@@ -1,24 +1,27 @@
 import os
 import argparse
 import numpy as np
+from dotenv import load_dotenv
 
 import torch
 
-from gans.metrics import fid, LossSecondTerm
-from gans.datasets import load_dataset
-from gans.gan.architectures.dcgan import Generator, Discriminator
-from gans.gan.train import train
-from gans.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
-from gans.utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed
-from gans.utils.config import read_config
-from gans.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
-from gans.utils.plot import plot_train_summary
+from stg.metrics import fid, LossSecondTerm
+from stg.datasets import load_dataset
+from stg.gan.architectures.dcgan import Generator, Discriminator
+from stg.gan.train import train
+from stg.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
+from stg.utils import weights_init, create_and_store_z, load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed
+from stg.utils.config import read_config
+from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
+from stg.utils.plot import plot_train_summary
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", dest="config_path", required=True, help="Config file")
-    parser.add_argument("--no-cuda", dest="cuda", action="store_false", default=True)
+    parser.add_argument("--config", dest="config_path",
+                        required=True, help="Config file")
+    parser.add_argument("--no-cuda", dest="cuda",
+                        action="store_false", default=True)
 
     return parser.parse_args()
 
@@ -34,23 +37,28 @@ def construct_gan(config, device):
 
 
 def construct_optimizers(config, G, D):
-    g_optim = torch.optim.Adam(G.parameters(), lr=config["lr"], betas=(config["beta1"], config["beta2"]))
-    d_optim = torch.optim.Adam(D.parameters(), lr=config["lr"], betas=(config["beta1"], config["beta2"]))
+    g_optim = torch.optim.Adam(G.parameters(), lr=config["lr"], betas=(
+        config["beta1"], config["beta2"]))
+    d_optim = torch.optim.Adam(D.parameters(), lr=config["lr"], betas=(
+        config["beta1"], config["beta2"]))
 
     return g_optim, d_optim
 
 
 def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metrics,
                        C, classifier_path, weight, fixed_noise, num_classes, device, seed):
-    print("Running experiment with classifier {} and weight {} ...".format(classifier_path, weight))
+    print("Running experiment with classifier {} and weight {} ...".format(
+        classifier_path, weight))
 
-    classifier_name = '.'.join(os.path.basename(classifier_path).split('.')[:-1])
+    classifier_name = '.'.join(
+        os.path.basename(classifier_path).split('.')[:-1])
     gan_cp_dir = os.path.join(cp_dir, '{}_{}'.format(classifier_name, weight))
 
     batch_size = config['train']['modified-gan']['batch-size']
     n_epochs = config['train']['modified-gan']['epochs']
 
-    G, D, g_optim, d_optim = construct_gan_from_checkpoint(gan_path, device=device)
+    G, D, g_optim, d_optim = construct_gan_from_checkpoint(
+        gan_path, device=device)
     d_crit = DiscriminatorLoss()
 
     if num_classes == 2:
@@ -75,14 +83,17 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
 
 
 def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu'):
-    dataloader = torch.utils.data.DataLoader(dset, batch_size=batch_size, shuffle=False)
+    dataloader = torch.utils.data.DataLoader(
+        dset, batch_size=batch_size, shuffle=False)
 
-    m, s = fid.calculate_activation_statistics_dataloader(dataloader, get_feature_map_fn, dims=dims, device=device)
+    m, s = fid.calculate_activation_statistics_dataloader(
+        dataloader, get_feature_map_fn, dims=dims, device=device)
 
     return m, s
 
 
 def main():
+    load_dotenv()
     args = parse_args()
 
     config = read_config(args.config_path)
@@ -93,7 +104,8 @@ def main():
     if "seed" not in config["train"]["modified-gan"]:
         config["train"]["modified-gan"]["seed"] = gen_seed()
 
-    device = torch.device("cuda:0" if (args.cuda and torch.cuda.is_available()) else "cpu")
+    device = torch.device("cuda:0" if (
+        args.cuda and torch.cuda.is_available()) else "cpu")
     print("Using device {}".format(device))
 
     ###
@@ -105,7 +117,8 @@ def main():
         pos_class = config["dataset"]["binary"]["pos"]
         neg_class = config["dataset"]["binary"]["neg"]
 
-    dataset, num_classes, _, _ = load_dataset(config["dataset"]["name"], config["dataset"]["dir"], pos_class, neg_class)
+    dataset, num_classes, _, _ = load_dataset(
+        config["dataset"]["name"], config["dataset"]["dir"], pos_class, neg_class)
     g_crit = RegularGeneratorLoss()
     d_crit = DiscriminatorLoss()
 
@@ -133,13 +146,15 @@ def main():
         arr = np.load(config['fixed-noise'])
         fixed_noise = torch.Tensor(arr).to(device)
     else:
-        fixed_noise = torch.randn(config['fixed-noise'], G.nz, 1, 1, device=device)
+        fixed_noise = torch.randn(
+            config['fixed-noise'], G.nz, 1, 1, device=device)
         with open(os.path.join(cp_dir, 'fixed_noise.npy'), 'wb') as f:
             np.save(f, fixed_noise.cpu().numpy())
 
     mu, sigma = fid.load_statistics_from_path(config['fid-stats-path'])
     fm_fn, dims = fid.get_inception_feature_map_fn(device)
-    original_fid = fid.FID(fm_fn, dims, test_noise.size(0), mu, sigma, device=device)
+    original_fid = fid.FID(
+        fm_fn, dims, test_noise.size(0), mu, sigma, device=device)
 
     ###
     # Train original GAN
@@ -189,10 +204,12 @@ def main():
         dims = get_feature_map_fn(dataset.data[0:1].to(device)).size(1)
 
         print(" > Computing statistics using original dataset")
-        mu, sigma = compute_dataset_fid_stats(dataset, get_feature_map_fn, dims, device=device)
+        mu, sigma = compute_dataset_fid_stats(
+            dataset, get_feature_map_fn, dims, device=device)
         print("   ... done")
 
-        our_class_fid = fid.FID(get_feature_map_fn, dims, test_noise.size(0), mu, sigma, device=device)
+        our_class_fid = fid.FID(get_feature_map_fn, dims,
+                                test_noise.size(0), mu, sigma, device=device)
         conf_dist = LossSecondTerm(C)
 
         fid_metrics = {

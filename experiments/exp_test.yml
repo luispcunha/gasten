@@ -1,13 +1,13 @@
-name: "exp_test_7v1"
-out-dir: "/content/drive/MyDrive/thesis/out_test"
-fixed-noise: 64
+name: "exp_7v1"
+out-dir: "/media/TOSHIBA6T/LCUNHA/msc/test"
+fixed-noise: 100
 test-noise:
-  n: 3000
+  n: 10000
 
-fid-stats-path: "/content/drive/MyDrive/thesis/out/mnist_stats.7v1.npz"
+fid-stats-path: "/home/lcunha/data/stats.mnist.7v1.npz"
 
 dataset:
-  dir: "data"
+  dir: "../data"
   name: "mnist"
   binary:
     pos: 7
@@ -35,7 +35,7 @@ train:
     epochs: 20
     batch-size: 64
     classifier:
-      - "/content/drive/MyDrive/thesis/out_test/test.pth"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/test.pth"
     weight:
       - 0.6
 
