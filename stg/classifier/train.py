@@ -205,8 +205,9 @@ def main():
     name = 'classifier.{}'.format(
         args.dataset_name) if args.name is None else args.name
 
-    dataset, num_classes, num_channels, img_size = load_dataset(args.dataset_name, args.data_dir,
-                                                                pos_class=args.pos_class, neg_class=args.neg_class)
+    dataset, num_classes, img_size = load_dataset(args.dataset_name, args.data_dir,
+                                                  pos_class=args.pos_class, neg_class=args.neg_class)
+    num_channels = img_size[0]
 
     print(" > Using dataset", args.dataset_name)
     binary_classification = num_classes == 2

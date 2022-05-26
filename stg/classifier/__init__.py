@@ -1,1 +1,1 @@
-from .classifier import Classifier
+from .simple_cnn import Classifier

@@ -1,9 +1,11 @@
 import torch
+import wandb
 import torchvision.utils as vutils
-from stg.utils.checkpoint import checkpoint_gan, checkpoint_images
+from stg.utils.checkpoint import checkpoint_gan, checkpoint_image
 from stg.utils import seed_worker
 from tqdm import tqdm
 import math
+from stg.utils import MetricsLogger
 
 
 def loss_terms_to_str(loss_items):
@@ -14,11 +16,11 @@ def loss_terms_to_str(loss_items):
     return result
 
 
-def evaluate(G, fid_metrics, stats, batch_size, test_noise, device):
+def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device):
+    # Compute evaluation metrics on fixed noise (Z) set
     training = G.training
     G.eval()
 
-    # Compute epoch FID on fixed set
     start_idx = 0
     num_batches = math.ceil(test_noise.size(0) / batch_size)
 
@@ -35,94 +37,75 @@ def evaluate(G, fid_metrics, stats, batch_size, test_noise, device):
 
     for metric_name, metric in fid_metrics.items():
         result = metric.finalize()
+        stats_logger.update_epoch(metric_name, result, prnt=True)
         metric.reset()
-        stats[metric_name].append(result)
-        print(metric_name, " = ", result)
 
     if training:
         G.train()
 
 
-def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_opt, d_crit, test_noise, fid_metrics,
+def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
+          d_opt, d_crit, test_noise, fid_metrics,
           early_stop_crit=None, early_stop_key=None,
-          checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, verbose=True):
+          checkpoint_dir=None, checkpoint_every=1, fixed_noise=None):
 
+    # TODO: fixed_noise n tá direito (64 hard coded)
     fixed_noise = torch.randn(
-        64, G.nz, 1, 1, device=device) if fixed_noise is None else fixed_noise
+        64, G.nz, device=device) if fixed_noise is None else fixed_noise
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=True,
         num_workers=config["num-workers"], worker_init_fn=seed_worker)
 
-    images = []
+    train_metrics = MetricsLogger(prefix='train', log_epoch=False)
+    eval_metrics = MetricsLogger(prefix='eval')
+
     stats = {
         'epoch': 0,
         'early_stop_tracker': 0,
         'best_epoch': 0,
-        'best_epoch_metric': float('inf'),
-        "G_losses_epoch": [],
-        "G_losses": [],
-        "D_losses_epoch": [],
-        "D_losses": [],
-        "D_x": [],
-        "D_G_z1": [],
-        "D_G_z2": [],
-        "D_x_epoch": [],
-        "D_G_z1_epoch": [],
-        "D_G_z2_epoch": [],
-        "D_acc_real": [],
-        "D_acc_fake_1": [],
-        "D_acc_fake_2": [],
-        "D_acc_real_epoch": [],
-        "D_acc_fake_1_epoch": [],
-        "D_acc_fake_2_epoch": [],
+        'best_epoch_metric': float('inf')
     }
+
+    train_metrics.add('G_loss', every_step=True)
+    train_metrics.add('D_loss', every_step=True)
+    train_metrics.add('D_x', every_step=True)
+    train_metrics.add('D_G_z1', every_step=True)
+    train_metrics.add('D_G_z2', every_step=True)
+    train_metrics.add('D_acc_real', every_step=True)
+    train_metrics.add('D_acc_fake_1', every_step=True)
+    train_metrics.add('D_acc_fake_2', every_step=True)
 
     for loss_term in g_crit.get_loss_terms():
-        stats[loss_term] = []
-        stats['{}_epoch'.format(loss_term)] = []
+        train_metrics.add(loss_term, every_step=True)
 
     for metric_name in fid_metrics.keys():
-        stats[metric_name] = []
+        eval_metrics.add(metric_name)
 
-    running_stats = {
-    }
+    eval_metrics.add_media_log('samples')
 
     with torch.no_grad():
+        G.eval()
         fake = G(fixed_noise).detach().cpu()
+        G.train()
     img = vutils.make_grid(fake, padding=2, normalize=True)
-    images.append(img)
 
-    # Storing state before starting training
-    evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
     latest_cp = checkpoint_gan(
-        G, D, g_opt, d_opt, stats, config, epoch=0, output_dir=checkpoint_dir)
+        G, D, g_opt, d_opt, {}, config, epoch=0, output_dir=checkpoint_dir)
     best_cp = latest_cp
-    checkpoint_images(fake, 0, output_dir=checkpoint_dir)
+    checkpoint_image(img, 0, output_dir=checkpoint_dir)
 
     G.train()
     D.train()
 
-    if verbose:
-        print("Starting training loop...")
+    print("Starting training loop...")
     for epoch in range(n_epochs):
-        stats['epoch'] = epoch
+        print("\t> Epoch {}".format(epoch + 1))
 
-        if verbose:
-            print("\t> Epoch {}".format(epoch + 1))
-
-        for loss_term in g_crit.get_loss_terms():
-            running_stats[loss_term] = 0
-
-        running_D_x = 0
-        running_D_G_z1 = 0
-        running_D_G_z2 = 0
-        running_G_loss = 0
-        running_D_loss = 0
-        running_D_acc_real = 0
-        running_D_acc_fake_1 = 0
-        running_D_acc_fake_2 = 0
+        train_metrics.reset_step_metrics()
 
         for i, data in enumerate(dataloader, 0):
+            cur_batch_size = data[0].size(0)
+
             ###
             # Discriminator
             ###
@@ -132,22 +115,24 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
             real_data = data[0].to(device)
             d_output_real = D(real_data).view(-1)
             D_x = d_output_real.mean().item()
-            running_D_x += d_output_real.sum().item()
             correct = (d_output_real >= 0.5).type(torch.float)
-            stats["D_acc_real"].append(correct.mean(dim=0).item())
-            running_D_acc_real += correct.sum(dim=0).item()
-            stats["D_x"].append(D_x)
+            D_acc_real = correct.mean(dim=0).item()
+
+            train_metrics.update_step("D_x", D_x, cur_batch_size)
+            train_metrics.update_step("D_acc_real", D_acc_real, cur_batch_size)
 
             # Fake data batch
-            noise = torch.randn(data[0].shape[0], G.nz, 1, 1, device=device)
+            noise = torch.randn(cur_batch_size, G.z_dim, device=device)
             fake_data = G(noise)
+
             d_output_fake = D(fake_data.detach()).view(-1)
             D_G_z1 = d_output_fake.mean().item()
-            running_D_G_z1 += d_output_fake.sum().item()
             correct = (d_output_fake < 0.5).type(torch.float)
-            stats["D_acc_fake_1"].append(correct.mean(dim=0).item())
-            stats["D_G_z1"].append(D_G_z1)
-            running_D_acc_fake_1 += correct.sum(dim=0).item()
+            D_acc_fake_1 = correct.mean(dim=0).item()
+
+            train_metrics.update_step("D_G_z1", D_G_z1, cur_batch_size)
+            train_metrics.update_step(
+                "D_acc_fake_1", D_acc_fake_1, cur_batch_size)
 
             # Compute loss, gradients and update net
             d_loss = d_crit(device, d_output_real, d_output_fake)
@@ -161,11 +146,12 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
 
             output = D(fake_data).view(-1)
             D_G_z2 = output.mean().item()
-            running_D_G_z2 += output.sum().item()
             correct = (output < 0.5).type(torch.float)
-            stats["D_acc_fake_2"].append(correct.mean(dim=0).item())
-            stats["D_G_z2"].append(D_G_z2)
-            running_D_acc_fake_2 += correct.sum(dim=0).item()
+            D_acc_fake_2 = correct.mean(dim=0).item()
+
+            train_metrics.update_step("D_G_z2", D_G_z2, cur_batch_size)
+            train_metrics.update_step(
+                "D_acc_fake_2", D_acc_fake_2, cur_batch_size)
 
             # Compute loss, gradients and update net
             g_loss, g_loss_terms = g_crit(device, output, fake_data)
@@ -173,56 +159,46 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
             g_opt.step()
 
             for loss_term_name, loss_term_value in g_loss_terms.items():
-                running_stats[loss_term_name] += loss_term_value * \
-                    data[0].shape[0]
-                stats[loss_term_name].append(loss_term_value)
+                train_metrics.update_step(
+                    loss_term_name, loss_term_value, cur_batch_size)
 
-            stats['G_losses'].append(g_loss.item())
-            stats['D_losses'].append(d_loss.item())
-            running_G_loss += g_loss.item() * data[0].shape[0]
-            running_D_loss += d_loss.item() * data[0].shape[0]
+            train_metrics.update_step('G_loss', g_loss.item(), cur_batch_size)
+            train_metrics.update_step('D_loss', d_loss.item(), cur_batch_size)
 
             # Output training stats
-            if verbose and ((i + 1) % 50) == 0 or i + 1 == len(dataloader):
+            if ((i + 1) % 50) == 0 or i + 1 == len(dataloader):
                 print('[%d/%d][%d/%d]\tD loss: %.4f\tG loss: %.4f %s\tD(x): %.4f\tD(G(z)): %.4f / %.4f'
                       % (epoch + 1, n_epochs, i + 1, len(dataloader), d_loss.item(), g_loss.item(),
                          loss_terms_to_str(g_loss_terms), D_x, D_G_z1, D_G_z2))
 
-        # Epoch metrics
-        stats["D_x_epoch"].append(running_D_x / len(dataset))
-        stats["D_G_z1_epoch"].append(running_D_G_z1 / len(dataset))
-        stats["D_G_z2_epoch"].append(running_D_G_z2 / len(dataset))
-        stats["G_losses_epoch"].append(running_G_loss / len(dataset))
-        stats["D_losses_epoch"].append(running_D_loss / len(dataset))
-        stats["D_acc_real_epoch"].append(running_D_acc_real / len(dataset))
-        stats["D_acc_fake_1_epoch"].append(running_D_acc_fake_1 / len(dataset))
-        stats["D_acc_fake_2_epoch"].append(running_D_acc_fake_2 / len(dataset))
-        for loss_term in g_crit.get_loss_terms():
-            stats['{}_epoch'.format(loss_term)].append(
-                running_stats[loss_term] / len(dataset))
+            train_metrics.finalize_step(cur_batch_size)
+
+        train_metrics.finalize_epoch()
 
         # Save G's output on fixed noise to analyse its evolution
         with torch.no_grad():
             G.eval()
             fake = G(fixed_noise).detach().cpu()
             G.train()
-        img = vutils.make_grid(fake, padding=2, normalize=True)
-        images.append(img)
 
         # Compute epoch FID on fixed set
-        evaluate(G, fid_metrics, stats, batch_size, test_noise, device)
+        evaluate(G, fid_metrics, eval_metrics, batch_size, test_noise, device)
+        eval_metrics.finalize_epoch()
+
+        img = vutils.make_grid(fake, padding=2, normalize=True)
+        checkpoint_image(img, epoch + 1, output_dir=checkpoint_dir)
+        eval_metrics.log_media('samples', img)
 
         if ((epoch + 1) % checkpoint_every) == 0:
             latest_cp = checkpoint_gan(
                 G, D, g_opt, d_opt, stats, config, epoch=epoch + 1, output_dir=checkpoint_dir)
-            checkpoint_images(fake, epoch + 1, output_dir=checkpoint_dir)
 
         # Early stop
         if early_stop_crit is not None and early_stop_key is not None:
-            if stats[early_stop_key][-1] < stats['best_epoch_metric']:
+            if eval_metrics.stats[f'eval/{early_stop_key}'][-1] < stats['best_epoch_metric']:
                 stats['early_stop_tracker'] = 0
                 stats['best_epoch'] = epoch
-                stats['best_epoch_metric'] = stats[early_stop_key][-1]
+                stats['best_epoch_metric'] = eval_metrics.stats[f'eval/{early_stop_key}'][-1]
                 best_cp = latest_cp
             else:
                 stats['early_stop_tracker'] += 1
@@ -230,5 +206,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D, d_
                     " > Early stop tracker {}/{}".format(stats['early_stop_tracker'], early_stop_crit))
                 if stats['early_stop_tracker'] == early_stop_crit:
                     break
+        else:
+            best_cp = latest_cp
 
-    return stats, images, best_cp
+    return stats, best_cp

@@ -4,7 +4,6 @@ fixed-noise: 100
 test-noise:
   n: 10000
 
-seed: 8532
 device: cuda:0
 num-workers: 6
 
@@ -30,18 +29,17 @@ optimizer:
 
 train:
   original-gan:
-    epochs: 20
+    epochs: 50
     batch-size: 64
-    early-stop:
-      criteria: 2
-      delta: 0
   modified-gan:
-    epochs: 20
+    epochs: 30
     batch-size: 64
     classifier:
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/test.pth"
     weight:
       - 0.6
+      - 0.55
+      - 0.65
 
 
 

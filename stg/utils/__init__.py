@@ -4,6 +4,7 @@ import random
 import torch
 import torch.nn as nn
 import numpy as np
+from stg.utils.metrics_logger import MetricsLogger
 
 
 def create_checkpoint_path(config):
@@ -41,20 +42,11 @@ def seed_worker(worker_id):
     random.seed(worker_seed)
 
 
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        nn.init.normal_(m.weight.data, 1.0, 0.02)
-        nn.init.constant_(m.bias.data, 0)
-
-
 def create_and_store_z(out_dir, n, dim, name=None):
     if name is None:
         name = "z_{}_{}".format(n, dim)
 
-    noise = torch.randn(n, dim, 1, 1).numpy()
+    noise = torch.randn(n, dim).numpy()
     out_path = os.path.join(out_dir, '{}.npz'.format(name))
 
     with open(out_path, 'wb') as f:

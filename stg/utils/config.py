@@ -36,14 +36,12 @@ config_schema = Schema({
             "epochs": int,
             "batch-size": int,
             Optional("early-stop"): {
-                "delta": Or(float, int),
                 "criteria": int,
             }
         }),
         "modified-gan": {
             Optional("seed"): int,
             Optional("early-stop"): {
-                "delta": Or(float, int),
                 "criteria": int,
             },
             "epochs": int,

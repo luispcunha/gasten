@@ -140,3 +140,6 @@ out/
 
 # Env variables
 .env
+
+# WandB
+wandb/

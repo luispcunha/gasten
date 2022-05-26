@@ -21,12 +21,14 @@ def load_dataset(name, data_dir, pos_class=None, neg_class=None, train=True):
     get_dset_fn = dataset_2_fn[name]
     dataset = get_dset_fn(data_dir, train=train)
 
-    image_size = dataset.data.shape[-1]
-    num_channels = 1
+    image_size = tuple(dataset.data.shape[1:])
+    if len(image_size) == 2:
+        image_size = 1, *image_size
+
     num_classes = dataset.targets.unique().size()
 
     if pos_class is not None and neg_class is not None:
         num_classes = 2
         dataset = BinaryDataset(dataset, pos_class, neg_class)
 
-    return dataset, num_classes, num_channels, image_size
+    return dataset, num_classes, image_size
