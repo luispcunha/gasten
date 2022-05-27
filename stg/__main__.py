@@ -81,6 +81,8 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         early_stop_key=early_stop_key, early_stop_crit=early_stop_crit,
         checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise)
 
+    wandb.finish()
+
 
 def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu', num_workers=0):
     dataloader = torch.utils.data.DataLoader(
