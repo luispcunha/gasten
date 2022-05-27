@@ -67,6 +67,7 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
                config={
         'id': run_id,
         'seed': seed,
+        'weight': weight,
         'train': config["train"]["step-2"],
         'classifier_loss': C_stats['best_loss'],
         'classifier_args': C_args,
