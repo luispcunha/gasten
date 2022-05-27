@@ -5,7 +5,7 @@ from stg.utils.checkpoint import checkpoint_gan, checkpoint_image
 from stg.utils import seed_worker
 from tqdm import tqdm
 import math
-from stg.utils import MetricsLogger
+from stg.utils import MetricsLogger, make_grid
 
 
 def loss_terms_to_str(loss_items):
@@ -49,7 +49,6 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
           early_stop_crit=None, early_stop_key=None,
           checkpoint_dir=None, checkpoint_every=1, fixed_noise=None):
 
-    # TODO: fixed_noise n tá direito (64 hard coded)
     fixed_noise = torch.randn(
         64, G.nz, device=device) if fixed_noise is None else fixed_noise
     dataloader = torch.utils.data.DataLoader(
@@ -59,7 +58,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
     train_metrics = MetricsLogger(prefix='train', log_epoch=False)
     eval_metrics = MetricsLogger(prefix='eval')
 
-    stats = {
+    train_state = {
         'epoch': 0,
         'early_stop_tracker': 0,
         'best_epoch': 0,
@@ -87,11 +86,12 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
         G.eval()
         fake = G(fixed_noise).detach().cpu()
         G.train()
-    img = vutils.make_grid(fake, padding=2, normalize=True)
 
     latest_cp = checkpoint_gan(
-        G, D, g_opt, d_opt, {}, config, epoch=0, output_dir=checkpoint_dir)
+        G, D, g_opt, d_opt, {}, {}, config, epoch=0, output_dir=checkpoint_dir)
     best_cp = latest_cp
+
+    img = make_grid(fake)
     checkpoint_image(img, 0, output_dir=checkpoint_dir)
 
     G.train()
@@ -174,6 +174,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
             train_metrics.finalize_step(cur_batch_size)
 
         train_metrics.finalize_epoch()
+        train_state['epoch'] += 1
 
         # Save G's output on fixed noise to analyse its evolution
         with torch.no_grad():
@@ -185,28 +186,29 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
         evaluate(G, fid_metrics, eval_metrics, batch_size, test_noise, device)
         eval_metrics.finalize_epoch()
 
-        img = vutils.make_grid(fake, padding=2, normalize=True)
+        img = make_grid(fake)
         checkpoint_image(img, epoch + 1, output_dir=checkpoint_dir)
         eval_metrics.log_media('samples', img)
 
         if ((epoch + 1) % checkpoint_every) == 0:
             latest_cp = checkpoint_gan(
-                G, D, g_opt, d_opt, stats, config, epoch=epoch + 1, output_dir=checkpoint_dir)
+                G, D, g_opt, d_opt, train_state, {"eval": eval_metrics.stats, "train": train_metrics.stats}, config, epoch=epoch + 1, output_dir=checkpoint_dir)
 
         # Early stop
         if early_stop_crit is not None and early_stop_key is not None:
-            if eval_metrics.stats[f'eval/{early_stop_key}'][-1] < stats['best_epoch_metric']:
-                stats['early_stop_tracker'] = 0
-                stats['best_epoch'] = epoch
-                stats['best_epoch_metric'] = eval_metrics.stats[f'eval/{early_stop_key}'][-1]
+            if eval_metrics.stats[f'eval/{early_stop_key}'][-1] < train_state['best_epoch_metric']:
+                train_state['early_stop_tracker'] = 0
+                train_state['best_epoch'] = epoch
+                train_state['best_epoch_metric'] = eval_metrics.stats[
+                    f'eval/{early_stop_key}'][-1]
                 best_cp = latest_cp
             else:
-                stats['early_stop_tracker'] += 1
+                train_state['early_stop_tracker'] += 1
                 print(
-                    " > Early stop tracker {}/{}".format(stats['early_stop_tracker'], early_stop_crit))
-                if stats['early_stop_tracker'] == early_stop_crit:
+                    " > Early stop tracker {}/{}".format(train_state['early_stop_tracker'], early_stop_crit))
+                if train_state['early_stop_tracker'] == early_stop_crit:
                     break
         else:
             best_cp = latest_cp
 
-    return stats, best_cp
+    return train_state, best_cp

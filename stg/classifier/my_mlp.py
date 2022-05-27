@@ -1,24 +1,21 @@
 import torch.nn as nn
 
 
-class MyMLP(nn.Module):
-    def __init__(self, nc, nf, num_classes):
-        super(MyMLP, self).__init__()
+class Classifier(nn.Module):
+    def __init__(self, num_channels, num_classes):
+        super(Classifier, self).__init__()
 
         self.blocks = nn.ModuleList()
         block_1 = nn.Sequential(
-            nn.Conv2d(nc, nf * 2, 5, 2, 2, bias=False),
-            nn.LeakyReLU(inplace=True),
+            nn.Flatten(),
+            nn.Linear(num_channels*28*28, num_channels*28*14),
             nn.Dropout(0.3),
         )
         self.blocks.append(block_1)
-        block_2 = nn.Sequential(
-            nn.AvgPool2d(2),
-            nn.Flatten(),
-        )
-        self.blocks.append(block_2)
+
         predictor = nn.Sequential(
-            nn.Linear(7 * 7 * nf * 2, 1 if num_classes == 2 else num_classes),
+            nn.Linear(num_channels*28*14, 1 if num_classes ==
+                      2 else num_classes),
             nn.Sigmoid() if num_classes == 2 else nn.Softmax(dim=1)
         )
         self.blocks.append(predictor)

@@ -1,10 +1,10 @@
 import os
 import json
 import torch
-import wandb
 import torchvision.utils as vutils
 import torch.optim as optim
-from stg.classifier import Classifier
+from stg.classifier import construct_classifier
+from stg.gan import construct_gan
 from stg.gan.architectures.dcgan import Generator, Discriminator
 
 
@@ -54,8 +54,7 @@ def construct_classifier_from_checkpoint(path, device=None, optimizer=False):
 
     n_classes = model_params['n_classes'] if 'n_classes' in model_params else 2
 
-    model = Classifier(model_params['nc'],
-                       model_params['nf'], n_classes).to(device)
+    model = construct_classifier(model_params, device=device)
     model.load_state_dict(cp['state'])
     model.eval()
 
@@ -79,9 +78,10 @@ def construct_gan_from_checkpoint(path, device=None):
         path, 'generator.pth'), map_location=device)
     dis_cp = torch.load(os.path.join(
         path, 'discriminator.pth'), map_location=device)
-    G = Generator(
-        model_params['nc'], ngf=model_params['ngf'], nz=model_params['nz']).to(device)
-    D = Discriminator(model_params['nc'], ndf=model_params['ndf']).to(device)
+
+    G, D = construct_gan(
+        model_params, tuple(config['model']['image-size']), device=device)
+
     g_optim = optim.Adam(G.parameters(), lr=optim_params["lr"], betas=(
         optim_params["beta1"], optim_params["beta2"]))
     d_optim = optim.Adam(D.parameters(), lr=optim_params["lr"], betas=(
@@ -98,7 +98,7 @@ def construct_gan_from_checkpoint(path, device=None):
     return G, D, g_optim, d_optim
 
 
-def checkpoint_gan(G, D, g_opt, d_opt, stats, config, output_dir=None, epoch=None):
+def checkpoint_gan(G, D, g_opt, d_opt, state, stats, config, output_dir=None, epoch=None):
     rootdir = os.path.curdir if output_dir is None else output_dir
 
     path = rootdir
@@ -117,6 +117,8 @@ def checkpoint_gan(G, D, g_opt, d_opt, stats, config, output_dir=None, epoch=Non
         'optimizer': d_opt.state_dict()
     }, os.path.join(path, 'discriminator.pth'))
 
+    json.dump(state, open(os.path.join(
+        rootdir, 'train_state.json'), 'w'), indent=2)
     json.dump(stats, open(os.path.join(rootdir, 'stats.json'), 'w'), indent=2)
     json.dump(config, open(os.path.join(path, 'config.json'), 'w'), indent=2)
 

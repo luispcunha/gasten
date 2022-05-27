@@ -5,26 +5,28 @@ from schema import Schema, SchemaError, Optional, And, Or
 
 
 config_schema = Schema({
+    "project": str,
     "name": str,
     "out-dir": os.path.exists,
+    "data-dir": os.path.exists,
     "fid-stats-path": os.path.exists,
-    "fixed-noise": Or(str, int),
-    "test-noise": Or(And(str, os.path.exists), {
-        "n": int
-    }),
+    "fixed-noise": Or(And(str, os.path.exists), int),
+    "test-noise": os.path.exists,
     Optional("device", default="cpu"): str,
-    Optional("seed"): int,
     Optional("num-workers", default=0): int,
+    Optional("num-runs", default=1): int,
+    Optional("step-1-seeds"): [int],
+    Optional("step-2-seeds"): [int],
     "dataset": {
-        "dir": str,
         "name": And(str, valid_dataset),
         Optional("binary"): {"pos": int, "neg": int}
     },
     "model": {
-        "nc": int,
-        "nz": int,
-        "ngf": int,
-        "ndf": int,
+        "z_dim": int,
+        "g_filter_dim": int,
+        "d_filter_dim": int,
+        "g_num_blocks": int,
+        "d_num_blocks": int
     },
     "optimizer": {
         "lr": float,
@@ -32,15 +34,14 @@ config_schema = Schema({
         "beta2": float,
     },
     "train": {
-        "original-gan": Or(And(str, os.path.exists), {
+        "step-1": Or(And(str, os.path.exists), {
             "epochs": int,
             "batch-size": int,
             Optional("early-stop"): {
                 "criteria": int,
             }
         }),
-        "modified-gan": {
-            Optional("seed"): int,
+        "step-2": {
             Optional("early-stop"): {
                 "criteria": int,
             },
@@ -49,7 +50,6 @@ config_schema = Schema({
             "classifier": [And(str, os.path.exists)],
             "weight": [And(Or(int, float), lambda n: 0 <= n <= 1)]
         }
-
     }
 })
 
@@ -62,5 +62,14 @@ def read_config(path):
         config_schema.validate(config)
     except SchemaError as se:
         raise se
+
+    if "run-seeds" in config and len(config["run-seeds"]) != config["num-runs"]:
+        print("Number of seeds must be equal to number of runs")
+        exit(-1)
+
+    if "run-seeds" in config["train"]["step-2"] and \
+            len(config["train"]["step-2"]["run-seeds"]) != config["num-runs"]:
+        print("Number of mod_gan seeds must be equal to number of runs")
+        exit(-1)
 
     return config

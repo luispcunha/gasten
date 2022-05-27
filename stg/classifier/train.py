@@ -1,3 +1,4 @@
+from sklearn.utils import shuffle
 from tqdm import tqdm
 import argparse
 import torch
@@ -11,7 +12,7 @@ from stg.datasets import load_dataset
 from stg.metrics.accuracy import binary_accuracy, multiclass_accuracy
 from stg.utils import setup_reprod
 from stg.utils.checkpoint import checkpoint, construct_classifier_from_checkpoint
-from stg.classifier import Classifier
+from stg.classifier import construct_classifier
 
 
 def evaluate(C, device, dataloader, criterion, acc_fun, verbose=True, desc='Validate', header=None):
@@ -110,7 +111,7 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
                                          output_dir=args.out_dir)
                     print('')
                     print(' > Saved checkpoint to {}'.format(cp_path))
-                    exit(-1)
+                    exit(0)
 
             running_accuracy += acc_fun(y_hat, y, avg=False)
             running_loss += loss.item() * X.shape[0]
@@ -162,7 +163,7 @@ def parse_args():
                         default='../data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir',
                         default='/media/TOSHIBA6T/LCUNHA/msc/classifiers', help='Path to generated files')
-    parser.add_argument('--name', dest='name', default='test',
+    parser.add_argument('--name', dest='name', default=None,
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
                         default='mnist', help='Dataset (mnist or fashion-mnist)')
@@ -171,17 +172,19 @@ def parse_args():
     parser.add_argument('--neg', dest='neg_class', default=1,
                         type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size',
-                        type=int, default=4, help='Batch size')
+                        type=int, default=32, help='Batch size')
+    parser.add_argument('--classifier-type', dest='c_type',
+                        type=str, help='"cnn" or "mlp"', default='mlp')
     parser.add_argument('--epochs', type=int, default=20,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
                         type=int, default=2, help='Early stopping criteria')
-    parser.add_argument('--lr', type=float, default=1e-3,
+    parser.add_argument('--lr', type=float, default=1e-4,
                         help='ADAM opt learning rate')
     parser.add_argument('--goal-loss-min',
-                        dest='goal_loss_min', type=float, default=None)
+                        dest='goal_loss_min', type=float, default=0.195)
     parser.add_argument('--goal-loss-max',
-                        dest='goal_loss_max', type=float, default=None)
+                        dest='goal_loss_max', type=float, default=0.205)
     parser.add_argument('--nf', type=int, default=16, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
     parser.add_argument('--device', default='cuda:0',
@@ -202,8 +205,8 @@ def main():
 
     device = torch.device("cpu" if args.device is None else args.device)
     print(" > Using device", device)
-    name = 'classifier.{}'.format(
-        args.dataset_name) if args.name is None else args.name
+    name = '{}.{}'.format(args.c_type,
+                          args.dataset_name) if args.name is None else args.name
 
     dataset, num_classes, img_size = load_dataset(args.dataset_name, args.data_dir,
                                                   pos_class=args.pos_class, neg_class=args.neg_class)
@@ -222,15 +225,17 @@ def main():
                                                        [int(5/6*len(dataset)), len(dataset) - int(5/6*len(dataset))])
 
     sampler = None
+    shuffle = True
     if args.goal_loss_max is not None and args.goal_loss_min is not None:
         sampler_labels = train_set.dataset.targets[train_set.indices]
         sampler = samplers.MPerClassSampler(
             sampler_labels, args.batch_size / 2, batch_size=args.batch_size)
+        shuffle = False
 
     train_loader = torch.utils.data.DataLoader(
-        train_set, sampler=sampler, batch_size=args.batch_size)
+        train_set, sampler=sampler, batch_size=args.batch_size, shuffle=shuffle)
     val_loader = torch.utils.data.DataLoader(
-        val_set, batch_size=args.batch_size, shuffle=True)
+        val_set, batch_size=args.batch_size, shuffle=False)
 
     test_set = load_dataset(args.dataset_name, args.data_dir,
                             args.pos_class, args.neg_class, train=False)[0]
@@ -239,13 +244,13 @@ def main():
         test_set, batch_size=args.batch_size, shuffle=False)
 
     model_params = {
+        'type': args.c_type,
         'nc': num_channels,
         'nf': args.nf,
         'n_classes': num_classes
     }
 
-    C = Classifier(model_params['nc'], model_params['nf'],
-                   model_params['n_classes']).to(device)
+    C = construct_classifier(model_params, device=device)
     print(C, flush=True)
     opt = optim.Adam(C.parameters(), lr=args.lr)
 
@@ -269,6 +274,8 @@ def main():
 
     stats['test_acc'] = test_acc
     stats['test_loss'] = test_loss
+    print('Test acc. =', test_acc)
+    print('test loss. =', test_loss)
 
     cp_path = checkpoint(best_C, name, model_params, stats,
                          args, output_dir=args.out_dir)
