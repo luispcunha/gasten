@@ -1,6 +1,6 @@
 project: "st-gans"
 name: "exp-mnist-7v1"
-out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
+out-dir: "/media/TOSHIBA6T/LCUNHA/msc/test"
 data-dir: "/home/lcunha/data"
 test-noise: "/home/lcunha/data/z/z_10000_100"
 fixed-noise: 100
@@ -32,7 +32,7 @@ optimizer:
 
 train:
   step-1:
-    epochs: 50
+    epochs: 1
     batch-size: 64
     early-stop:
       criteria: 10

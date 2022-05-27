@@ -13,7 +13,7 @@ class MetricsLogger:
         self.log_epoch = log_epoch
 
     def add_media_log(self, name):
-        wandb.define_metric(name, step_metrics=self.apply_prefix('epoch'))
+        wandb.define_metric(name, step_metric=self.apply_prefix('epoch'))
 
     def log_media(self, name, image, caption=None):
         wandb.log({name: wandb.Image(image, caption=caption)})

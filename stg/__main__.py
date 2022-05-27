@@ -244,7 +244,7 @@ def main():
             fid_metrics = {
                 'fid': original_fid,
                 'focd': our_class_fid,
-                'confusion distance': conf_dist,
+                'conf_dist': conf_dist,
             }
 
             for weight in weights:
