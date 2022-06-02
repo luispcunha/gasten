@@ -11,7 +11,7 @@ from stg.datasets import load_dataset
 from stg.gan.architectures.dcgan import Generator, Discriminator
 from stg.gan.train import train
 from stg.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
-from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, create_exp_path, gen_seed, seed_worker
+from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed, seed_worker
 from stg.utils.config import read_config
 from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
 from stg.gan import construct_gan
@@ -40,15 +40,18 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
 
     classifier_name = '.'.join(
         os.path.basename(classifier_path).split('.')[:-1])
-    gan_cp_dir = os.path.join(cp_dir, '{}_{}'.format(
-        classifier_name, int(weight*100)))
+    run_name = '{}_{}'.format(classifier_name, int(weight*100))
+
+    gan_cp_dir = os.path.join(cp_dir, run_name)
 
     batch_size = config['train']['step-2']['batch-size']
     n_epochs = config['train']['step-2']['epochs']
 
-    G, D, g_optim, d_optim = construct_gan_from_checkpoint(
+    G, D, _, _ = construct_gan_from_checkpoint(
         gan_path, device=device)
     d_crit = DiscriminatorLoss()
+
+    g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
 
     if num_classes == 2:
         g_crit = NewGeneratorLossBinary(C, beta=weight)
@@ -58,18 +61,26 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
     early_stop_key = 'conf_dist'
     early_stop_crit = None if 'early-stop' not in config['train']['step-2'] \
         else config['train']['step-2']['early-stop']['criteria']
+    early_stop_crit_step_1 = early_stop_crit \
+        if 'early-stop' not in config['train']['step-1'] \
+        else config['train']['step-1']['early-stop']['criteria']
+
+    early_stop = (early_stop_key, early_stop_crit) \
+        if early_stop_key is not None and early_stop_crit is not None \
+        else None
 
     set_seed(seed)
     wandb.init(project=config["project"],
                group=config["name"],
                entity="luispcunha",
                job_type='step-2',
+               name=f'{run_id}-{run_name}',
                config={
         'id': run_id,
         'seed': seed,
         'weight': weight,
         'train': config["train"]["step-2"],
-        'classifier_loss': C_stats['best_loss'],
+        'classifier_loss': C_stats['test_loss'],
         'classifier_args': C_args,
         'classifier_params': C_params
     })
@@ -79,7 +90,8 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         G, g_optim, g_crit,
         D, d_optim, d_crit,
         test_noise, fid_metrics,
-        early_stop_key=early_stop_key, early_stop_crit=early_stop_crit,
+        early_stop=early_stop,
+        start_early_stop_when=('fid', early_stop_crit_step_1),
         checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise)
 
     wandb.finish()
@@ -184,13 +196,18 @@ def main():
                 'fid': original_fid
             }
             early_stop_key = 'fid'
-            early_stop_crit = None if 'early-stop' not in config['train']['step-1'] \
+            early_stop_crit = None \
+                if 'early-stop' not in config['train']['step-1'] \
                 else config['train']['step-1']['early-stop']['criteria']
+            early_stop = None \
+                if early_stop_key is None and early_stop_key is None \
+                else (early_stop_key, early_stop_crit)
 
             wandb.init(project=config["project"],
                        group=config["name"],
                        entity="luispcunha",
                        job_type='step-1',
+                       name=f'{run_id}-step-1',
                        config={
                            'id': run_id,
                            'seed': seed,
@@ -207,7 +224,7 @@ def main():
                 G, g_optim, g_crit,
                 D, d_optim, d_crit,
                 test_noise, fid_metrics,
-                early_stop_crit=early_stop_crit, early_stop_key=early_stop_key,
+                early_stop=early_stop,
                 checkpoint_dir=original_gan_cp_dir, fixed_noise=fixed_noise)
 
             wandb.finish()

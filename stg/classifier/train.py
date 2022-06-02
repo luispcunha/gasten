@@ -160,7 +160,7 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', dest='data_dir',
-                        default='../data', help='Path to dataset')
+                        default='/home/lcunha/data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir',
                         default='/media/TOSHIBA6T/LCUNHA/msc/classifiers', help='Path to generated files')
     parser.add_argument('--name', dest='name', default=None,
@@ -174,18 +174,18 @@ def parse_args():
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=32, help='Batch size')
     parser.add_argument('--classifier-type', dest='c_type',
-                        type=str, help='"cnn" or "mlp"', default='mlp')
+                        type=str, help='"cnn" or "mlp"', default='cnn')
     parser.add_argument('--epochs', type=int, default=20,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
-                        type=int, default=2, help='Early stopping criteria')
+                        type=int, default=3, help='Early stopping criteria')
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='ADAM opt learning rate')
     parser.add_argument('--goal-loss-min',
                         dest='goal_loss_min', type=float, default=0.195)
     parser.add_argument('--goal-loss-max',
                         dest='goal_loss_max', type=float, default=0.205)
-    parser.add_argument('--nf', type=int, default=16, help='Num features')
+    parser.add_argument('--nf', type=int, default=2, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
     parser.add_argument('--device', default='cuda:0',
                         help='Device to run experiments (cpu, cuda:0, cuda:1, ...')

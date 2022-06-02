@@ -1,4 +1,4 @@
-project: "st-gans"
+project: "gasten"
 name: "exp-mnist-7v1"
 out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
 data-dir: "/home/lcunha/data"
@@ -37,18 +37,20 @@ train:
     early-stop:
       criteria: 5
   step-2:
-    epochs: 50
+    epochs: 100
     batch-size: 64
     early-stop:
       criteria: 10
     classifier:
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn.mnist.7v1.pth"
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn.mnist.7v1.5.pth"
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp.mnist.7v1.10.pth"
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp.mnist.7v1.20.pth"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn.mnist.7v1.10.pth"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn.mnist.7v1.20.pth"
     weight:
+      - 0
       - 0.5
+      - 0.55
       - 0.6
+      - 0.65
       - 0.7
 
 

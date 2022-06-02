@@ -1,4 +1,5 @@
 import torch.nn as nn
+import math
 
 
 class Classifier(nn.Module):
@@ -7,16 +8,23 @@ class Classifier(nn.Module):
 
         self.blocks = nn.ModuleList()
         block_1 = nn.Sequential(
-            nn.Conv2d(nc, nf * 2, 5, 2, 2, bias=False),
-            nn.LeakyReLU(inplace=True),
-            nn.Dropout(0.3),
+            nn.Conv2d(nc, nf, 3, padding='same'),
         )
         self.blocks.append(block_1)
         block_2 = nn.Sequential(
-            nn.AvgPool2d(2),
-            nn.Flatten(),
+            nn.MaxPool2d(2),
         )
         self.blocks.append(block_2)
+        block_3 = nn.Sequential(
+            nn.Conv2d(nf, nf*2, 3, padding='same'),
+        )
+        self.blocks.append(block_3)
+        block_4 = nn.Sequential(
+            nn.MaxPool2d(2),
+            nn.Flatten(),
+        )
+        self.blocks.append(block_4)
+
         predictor = nn.Sequential(
             nn.Linear(7 * 7 * nf * 2, 1 if num_classes == 2 else num_classes),
             nn.Sigmoid() if num_classes == 2 else nn.Softmax(dim=1)

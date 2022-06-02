@@ -46,11 +46,12 @@ def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device):
 
 def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
           d_opt, d_crit, test_noise, fid_metrics,
-          early_stop_crit=None, early_stop_key=None,
+          early_stop=None,  # Tuple of (key, crit)
+          start_early_stop_when=None,  # Tuple of (key, crit):
           checkpoint_dir=None, checkpoint_every=1, fixed_noise=None):
 
     fixed_noise = torch.randn(
-        64, G.nz, device=device) if fixed_noise is None else fixed_noise
+        64, G.z_dim, device=device) if fixed_noise is None else fixed_noise
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=True,
         num_workers=config["num-workers"], worker_init_fn=seed_worker)
@@ -62,8 +63,18 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
         'epoch': 0,
         'early_stop_tracker': 0,
         'best_epoch': 0,
-        'best_epoch_metric': float('inf')
+        'best_epoch_metric': float('inf'),
     }
+
+    early_stop_state = 2
+    if early_stop is not None:
+        early_stop_key, early_stop_crit = early_stop
+        early_stop_state = 1
+        if start_early_stop_when is not None:
+            train_state['pre_early_stop_tracker'] = 0,
+            train_state['pre_early_stop_metric'] = float('inf')
+            pre_early_stop_key, pre_early_stop_crit = start_early_stop_when
+            early_stop_state = 0
 
     train_metrics.add('G_loss', every_step=True)
     train_metrics.add('D_loss', every_step=True)
@@ -195,7 +206,24 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
                 G, D, g_opt, d_opt, train_state, {"eval": eval_metrics.stats, "train": train_metrics.stats}, config, epoch=epoch + 1, output_dir=checkpoint_dir)
 
         # Early stop
-        if early_stop_crit is not None and early_stop_key is not None:
+        if early_stop_state == 0:
+            # Pre early stop phase
+            if eval_metrics.stats[f'eval/{pre_early_stop_key}'][-1] \
+                    < train_state['pre_early_stop_metric']:
+                train_state['pre_early_stop_tracker'] = 0
+                train_state['pre_early_stop_metric'] = \
+                    eval_metrics.stats[f'eval/{pre_early_stop_key}'][-1]
+            else:
+                train_state['pre_early_stop_tracker'] += 1
+                print(
+                    " > Pre-early stop tracker {}/{}".format(train_state['pre_early_stop_tracker'], pre_early_stop_crit))
+                if train_state['pre_early_stop_tracker'] \
+                        == pre_early_stop_crit:
+                    early_stop_state = 1
+
+            best_cp = latest_cp
+        elif early_stop_state == 1:
+            # Early stop phase
             if eval_metrics.stats[f'eval/{early_stop_key}'][-1] < train_state['best_epoch_metric']:
                 train_state['early_stop_tracker'] = 0
                 train_state['best_epoch'] = epoch
@@ -209,6 +237,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
                 if train_state['early_stop_tracker'] == early_stop_crit:
                     break
         else:
+            # No early stop
             best_cp = latest_cp
 
     return train_state, best_cp
