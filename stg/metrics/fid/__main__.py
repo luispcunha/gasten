@@ -16,9 +16,9 @@ parser.add_argument('--data', dest='dataroot',
                     default='../data', help='Dir with dataset')
 parser.add_argument('--dataset', dest='dataset',
                     default='mnist', help='Dataset (mnist or fashion-mnist)')
-parser.add_argument('--pos', dest='pos_class', default=7,
+parser.add_argument('--pos', dest='pos_class', default=9,
                     type=int, help='Positive class for binary classification')
-parser.add_argument('--neg', dest='neg_class', default=1,
+parser.add_argument('--neg', dest='neg_class', default=4,
                     type=int, help='Negative class for binary classification')
 parser.add_argument('--batch-size', type=int, default=64,
                     help='Batch size to use')

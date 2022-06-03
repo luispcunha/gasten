@@ -167,9 +167,9 @@ def parse_args():
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
                         default='mnist', help='Dataset (mnist or fashion-mnist)')
-    parser.add_argument('--pos', dest='pos_class', default=7,
+    parser.add_argument('--pos', dest='pos_class', default=9,
                         type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=1,
+    parser.add_argument('--neg', dest='neg_class', default=4,
                         type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=32, help='Batch size')
