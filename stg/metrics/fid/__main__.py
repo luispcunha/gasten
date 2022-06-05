@@ -13,7 +13,7 @@ from stg.datasets.utils import BinaryDataset
 
 parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', dest='dataroot',
-                    default='../data', help='Dir with dataset')
+                    default='/home/lcunha/data', help='Dir with dataset')
 parser.add_argument('--dataset', dest='dataset',
                     default='mnist', help='Dataset (mnist or fashion-mnist)')
 parser.add_argument('--pos', dest='pos_class', default=9,

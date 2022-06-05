@@ -167,9 +167,9 @@ def parse_args():
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
                         default='mnist', help='Dataset (mnist or fashion-mnist)')
-    parser.add_argument('--pos', dest='pos_class', default=9,
+    parser.add_argument('--pos', dest='pos_class', default=7,
                         type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=4,
+    parser.add_argument('--neg', dest='neg_class', default=1,
                         type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=32, help='Batch size')
@@ -182,9 +182,9 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=1e-4,
                         help='ADAM opt learning rate')
     parser.add_argument('--goal-loss-min',
-                        dest='goal_loss_min', type=float, default=0.195)
+                        dest='goal_loss_min', type=float, default=0.145)
     parser.add_argument('--goal-loss-max',
-                        dest='goal_loss_max', type=float, default=0.205)
+                        dest='goal_loss_max', type=float, default=0.155)
     parser.add_argument('--nf', type=int, default=2, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
     parser.add_argument('--device', default='cuda:0',
