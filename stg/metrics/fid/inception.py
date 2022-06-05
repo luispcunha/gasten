@@ -212,6 +212,7 @@ def fid_inception_v3():
 
 class FIDInceptionA(torchvision.models.inception.InceptionA):
     """InceptionA block patched for FID computation"""
+
     def __init__(self, in_channels, pool_features):
         super(FIDInceptionA, self).__init__(in_channels, pool_features)
 
@@ -237,6 +238,7 @@ class FIDInceptionA(torchvision.models.inception.InceptionA):
 
 class FIDInceptionC(torchvision.models.inception.InceptionC):
     """InceptionC block patched for FID computation"""
+
     def __init__(self, in_channels, channels_7x7):
         super(FIDInceptionC, self).__init__(in_channels, channels_7x7)
 
@@ -265,6 +267,7 @@ class FIDInceptionC(torchvision.models.inception.InceptionC):
 
 class FIDInceptionE_1(torchvision.models.inception.InceptionE):
     """First InceptionE block patched for FID computation"""
+
     def __init__(self, in_channels):
         super(FIDInceptionE_1, self).__init__(in_channels)
 
@@ -298,6 +301,7 @@ class FIDInceptionE_1(torchvision.models.inception.InceptionE):
 
 class FIDInceptionE_2(torchvision.models.inception.InceptionE):
     """Second InceptionE block patched for FID computation"""
+
     def __init__(self, in_channels):
         super(FIDInceptionE_2, self).__init__(in_channels)
 
@@ -341,7 +345,8 @@ def get_inception_feature_map_fn(device):
         if batch.size(1) == 1:
             batch = batch.expand(-1, 3, -1, -1)
 
-        pred = model(batch)[0]
+        with torch.no_grad():
+            pred = model(batch)[0]
 
         # If model output is not scalar, apply global spatial average pooling.
         # This happens if you choose a dimensionality not equal 2048.

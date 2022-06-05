@@ -2,7 +2,7 @@ project: "gasten"
 name: "exp-mnist-7v1"
 out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
 data-dir: "/home/lcunha/data"
-test-noise: "/home/lcunha/data/z/z_10000_100"
+test-noise: "/home/lcunha/data/z/z_10000_64"
 fixed-noise: 100
 
 device: cuda:0
@@ -19,7 +19,7 @@ dataset:
     neg: 1
 
 model:
-  z_dim: 100
+  z_dim: 64
   g_filter_dim: 64
   d_filter_dim: 64
   g_num_blocks: 3
@@ -49,16 +49,12 @@ train:
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn.mnist.7v1.20.pth"
     weight:
       - 0
-      - 0.1
-      - 0.2
       - 0.3
       - 0.4
       - 0.5
       - 0.6
       - 0.7
       - 0.8
-      - 0.9
-      - 1
 
 
 
