@@ -150,7 +150,8 @@ def get_activations(images, feature_map_fn, batch_size=64, dims=2048, device='cp
         batch = images[start_idx:start_idx +
                        min(batch_size, len(images) - start_idx)].to(device)
 
-        pred = feature_map_fn(batch)
+        with torch.no_grad():
+            pred = feature_map_fn(batch)
 
         pred = pred.cpu().numpy()
 
@@ -206,7 +207,8 @@ def get_activations_dataloader(dataloader, feature_map_fn, dims=2048, device='cp
     for batch in tqdm(dataloader):
         batch = batch[0].to(device)
 
-        pred = feature_map_fn(batch)
+        with torch.no_grad():
+            pred = feature_map_fn(batch)
 
         pred = pred.cpu().numpy()
 

@@ -345,8 +345,7 @@ def get_inception_feature_map_fn(device):
         if batch.size(1) == 1:
             batch = batch.expand(-1, 3, -1, -1)
 
-        with torch.no_grad():
-            pred = model(batch)[0]
+        pred = model(batch)[0]
 
         # If model output is not scalar, apply global spatial average pooling.
         # This happens if you choose a dimensionality not equal 2048.
