@@ -141,12 +141,21 @@ class Discriminator(nn.Module):
             cur_s_h = conv_out_size_same(cur_s_h, 2)
             cur_s_w = conv_out_size_same(cur_s_w, 2)
 
-            in_channels = n_channels if i == 0 else filter_dim * 2 ** (i - 1)
             out_channels = filter_dim * 2 ** i
-            block = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, 5, 2, 2, bias=False),
-                nn.LeakyReLU(0.2, inplace=True)
-            )
+            if i == 0:
+                in_channels = n_channels
+                block = nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels, 5, 2, 2, bias=False),
+                    nn.LeakyReLU(0.2, inplace=True)
+                )
+            else:
+                in_channels = filter_dim * 2 ** (i - 1)
+                block = nn.Sequential(
+                    nn.Conv2d(in_channels, out_channels, 5, 2, 2, bias=False),
+                    nn.BatchNorm2d(out_channels),
+                    nn.LeakyReLU(0.2, inplace=True)
+                )
+
             self.conv_blocks.append(block)
 
         self.predict = nn.Sequential(
