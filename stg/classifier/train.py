@@ -167,24 +167,24 @@ def parse_args():
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
                         default='mnist', help='Dataset (mnist or fashion-mnist)')
-    parser.add_argument('--pos', dest='pos_class', default=9,
+    parser.add_argument('--pos', dest='pos_class', default=7,
                         type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=4,
+    parser.add_argument('--neg', dest='neg_class', default=1,
                         type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size',
-                        type=int, default=32, help='Batch size')
+                        type=int, default=64, help='Batch size')
     parser.add_argument('--classifier-type', dest='c_type',
-                        type=str, help='"cnn" or "mlp"', default='cnn')
-    parser.add_argument('--epochs', type=int, default=20,
+                        type=str, help='"cnn" or "mlp"', default='mlp')
+    parser.add_argument('--epochs', type=int, default=3,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
-                        type=int, default=3, help='Early stopping criteria')
-    parser.add_argument('--lr', type=float, default=1e-4,
+                        type=int, default=None, help='Early stopping criteria')
+    parser.add_argument('--lr', type=float, default=1e-3,
                         help='ADAM opt learning rate')
     parser.add_argument('--goal-loss-min',
-                        dest='goal_loss_min', type=float, default=0.069)
+                        dest='goal_loss_min', type=float, default=None)
     parser.add_argument('--goal-loss-max',
-                        dest='goal_loss_max', type=float, default=0.071)
+                        dest='goal_loss_max', type=float, default=None)
     parser.add_argument('--nf', type=int, default=2, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
     parser.add_argument('--device', default='cuda:0',
@@ -205,8 +205,9 @@ def main():
 
     device = torch.device("cpu" if args.device is None else args.device)
     print(" > Using device", device)
-    name = '{}.{}'.format(args.c_type,
-                          args.dataset_name) if args.name is None else args.name
+    name = '{}-{}-{}.{}.{}'.format(args.c_type, args.nf, args.epochs,
+                                   args.dataset_name,
+                                   args.seed) if args.name is None else args.name
 
     dataset, num_classes, img_size = load_dataset(args.dataset_name, args.data_dir,
                                                   pos_class=args.pos_class, neg_class=args.neg_class)

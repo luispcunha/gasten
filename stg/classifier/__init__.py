@@ -7,7 +7,7 @@ def construct_classifier(params, device=None):
         C = SimpleCNN(params['nc'], params['nf'],
                       params['n_classes'])
     elif params['type'] == 'mlp':
-        C = MyMLP(params['nc'], params['n_classes'])
+        C = MyMLP(params['nc'], params['n_classes'], params['nf'])
     else:
         exit(-1)
 

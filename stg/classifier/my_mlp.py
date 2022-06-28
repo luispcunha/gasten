@@ -2,19 +2,18 @@ import torch.nn as nn
 
 
 class Classifier(nn.Module):
-    def __init__(self, num_channels, num_classes):
+    def __init__(self, num_channels, num_classes, nf):
         super(Classifier, self).__init__()
 
         self.blocks = nn.ModuleList()
         block_1 = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(num_channels*28*28, num_channels*28*14),
-            nn.Dropout(0.3),
+            nn.Linear(num_channels*28*28, nf),
         )
         self.blocks.append(block_1)
 
         predictor = nn.Sequential(
-            nn.Linear(num_channels*28*14, 1 if num_classes ==
+            nn.Linear(nf, 1 if num_classes ==
                       2 else num_classes),
             nn.Sigmoid() if num_classes == 2 else nn.Softmax(dim=1)
         )
