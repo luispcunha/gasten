@@ -1,16 +1,17 @@
-from .datasets import get_mnist, get_fashion_mnist
+import torch
+from .datasets import get_mnist, get_fashion_mnist, get_cifar10
 from .utils import BinaryDataset
 
 
 dataset_2_fn = {
     'mnist': get_mnist,
     'fashion-mnist': get_fashion_mnist,
+    'cifar10': get_cifar10,
 }
 
 
 def valid_dataset(name):
-    valid_ds = {"mnist", "fashion-mnist"}
-    return name.lower() in valid_ds
+    return name.lower() in dataset_2_fn
 
 
 def load_dataset(name, data_dir, pos_class=None, neg_class=None, train=True):
@@ -24,8 +25,14 @@ def load_dataset(name, data_dir, pos_class=None, neg_class=None, train=True):
     image_size = tuple(dataset.data.shape[1:])
     if len(image_size) == 2:
         image_size = 1, *image_size
+    elif len(image_size) == 3:
+        if image_size[2] == 3:
+            image_size = image_size[2], image_size[0], image_size[1]
 
-    num_classes = dataset.targets.unique().size()
+    targets = dataset.targets if torch.is_tensor(
+        dataset.targets) else torch.Tensor(dataset.targets)
+
+    num_classes = targets.unique().size()
 
     if pos_class is not None and neg_class is not None:
         num_classes = 2

@@ -85,34 +85,6 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
 
             opt.step()
 
-            # Output training stats
-            if args.goal_loss_max is not None and args.goal_loss_min is not None:
-                print('[%d/%d][%d/%d]\tloss: %.4f\tAcc: %.4f'
-                      % (epoch + 1, args.epochs, i + 1, len(train_loader), loss.item(),
-                         acc_fun(y_hat, y, avg=True)))
-
-                test_acc, test_loss = evaluate(
-                    C, device, test_loader, crit, acc_fun, verbose=False)
-                stats['test_acc'] = test_acc
-                stats['test_loss'] = test_loss
-
-                if args.goal_loss_min <= test_loss <= args.goal_loss_max:
-                    name_with_acc = '{}.{}'.format(
-                        name, '{}'.format(round(test_loss * 100)))
-                    cp_path = checkpoint(C, name_with_acc, model_params, stats, args,
-                                         output_dir=args.out_dir)
-                    print("")
-                    print(' > Saved checkpoint to {}'.format(cp_path))
-                    exit(0)
-                elif test_loss < args.goal_loss_min:
-                    name_with_acc = '{}.{}_fail'.format(
-                        name, '{}'.format(round(test_loss * 100)))
-                    cp_path = checkpoint(C, name_with_acc, model_params, stats, args,
-                                         output_dir=args.out_dir)
-                    print('')
-                    print(' > Saved checkpoint to {}'.format(cp_path))
-                    exit(0)
-
             running_accuracy += acc_fun(y_hat, y, avg=False)
             running_loss += loss.item() * X.shape[0]
 
@@ -166,26 +138,22 @@ def parse_args():
     parser.add_argument('--name', dest='name', default=None,
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
-                        default='mnist', help='Dataset (mnist or fashion-mnist)')
-    parser.add_argument('--pos', dest='pos_class', default=7,
+                        default='cifar10', help='Dataset (mnist or fashion-mnist)')
+    parser.add_argument('--pos', dest='pos_class', default=5,
                         type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=1,
+    parser.add_argument('--neg', dest='neg_class', default=3,
                         type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=64, help='Batch size')
     parser.add_argument('--classifier-type', dest='c_type',
-                        type=str, help='"cnn" or "mlp"', default='mlp')
-    parser.add_argument('--epochs', type=int, default=3,
+                        type=str, help='"cnn" or "mlp"', default='cnn')
+    parser.add_argument('--epochs', type=int, default=50,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
-                        type=int, default=None, help='Early stopping criteria')
+                        type=int, default=3, help='Early stopping criteria')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='ADAM opt learning rate')
-    parser.add_argument('--goal-loss-min',
-                        dest='goal_loss_min', type=float, default=None)
-    parser.add_argument('--goal-loss-max',
-                        dest='goal_loss_max', type=float, default=None)
-    parser.add_argument('--nf', type=int, default=2, help='Num features')
+    parser.add_argument('--nf', type=int, default=4, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
     parser.add_argument('--device', default='cuda:0',
                         help='Device to run experiments (cpu, cuda:0, cuda:1, ...')
@@ -211,7 +179,6 @@ def main():
 
     dataset, num_classes, img_size = load_dataset(args.dataset_name, args.data_dir,
                                                   pos_class=args.pos_class, neg_class=args.neg_class)
-    num_channels = img_size[0]
 
     print(" > Using dataset", args.dataset_name)
     binary_classification = num_classes == 2
@@ -225,16 +192,8 @@ def main():
     train_set, val_set = torch.utils.data.random_split(dataset,
                                                        [int(5/6*len(dataset)), len(dataset) - int(5/6*len(dataset))])
 
-    sampler = None
-    shuffle = True
-    if args.goal_loss_max is not None and args.goal_loss_min is not None:
-        sampler_labels = train_set.dataset.targets[train_set.indices]
-        sampler = samplers.MPerClassSampler(
-            sampler_labels, args.batch_size / 2, batch_size=args.batch_size)
-        shuffle = False
-
     train_loader = torch.utils.data.DataLoader(
-        train_set, sampler=sampler, batch_size=args.batch_size, shuffle=shuffle)
+        train_set, batch_size=args.batch_size, shuffle=shuffle)
     val_loader = torch.utils.data.DataLoader(
         val_set, batch_size=args.batch_size, shuffle=False)
 
@@ -246,7 +205,7 @@ def main():
 
     model_params = {
         'type': args.c_type,
-        'nc': num_channels,
+        'img_size': img_size,
         'nf': args.nf,
         'n_classes': num_classes
     }

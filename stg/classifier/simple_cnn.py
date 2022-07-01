@@ -2,9 +2,18 @@ import torch.nn as nn
 import math
 
 
+def pool_out(in_size, kernel, dilation=1, padding=0, stride=None):
+    stride = kernel if stride is None else stride
+
+    out_size = (in_size + 2 * padding - dilation * (kernel-1) - 1) / stride + 1
+
+    return int(math.floor(out_size))
+
+
 class Classifier(nn.Module):
-    def __init__(self, nc, nf, num_classes):
+    def __init__(self, img_size, nf, num_classes):
         super(Classifier, self).__init__()
+        nc, nh, nw = img_size
 
         self.blocks = nn.ModuleList()
         block_1 = nn.Sequential(
@@ -15,18 +24,26 @@ class Classifier(nn.Module):
             nn.MaxPool2d(2),
         )
         self.blocks.append(block_2)
+
+        nh = pool_out(nh, 2)
+        nw = pool_out(nw, 2)
+
         block_3 = nn.Sequential(
             nn.Conv2d(nf, nf*2, 3, padding='same'),
         )
         self.blocks.append(block_3)
         block_4 = nn.Sequential(
             nn.MaxPool2d(2),
-            nn.Flatten(),
         )
         self.blocks.append(block_4)
 
+        nh = pool_out(nh, 2)
+        nw = pool_out(nw, 2)
+
+        self.blocks.append(nn.Flatten())
+
         predictor = nn.Sequential(
-            nn.Linear(7 * 7 * nf * 2, 1 if num_classes == 2 else num_classes),
+            nn.Linear(nh * nw * nf * 2, 1 if num_classes == 2 else num_classes),
             nn.Sigmoid() if num_classes == 2 else nn.Softmax(dim=1)
         )
         self.blocks.append(predictor)

@@ -34,13 +34,10 @@ def construct_optimizers(config, G, D):
 
 
 def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metrics,
-                       C, C_params, C_stats, C_args, classifier_path, weight, fixed_noise, num_classes, device, seed, run_id):
+                       C, C_name, C_params, C_stats, C_args, weight, fixed_noise, num_classes, device, seed, run_id):
     print("Running experiment with classifier {} and weight {} ...".format(
-        classifier_path, weight))
-
-    classifier_name = '.'.join(
-        os.path.basename(classifier_path).split('.')[:-1])
-    run_name = '{}_{}'.format(classifier_name, int(weight*100))
+        C_name, weight))
+    run_name = '{}_{}'.format(C_name, weight)
 
     gan_cp_dir = os.path.join(cp_dir, run_name)
 
@@ -81,6 +78,7 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         'weight': weight,
         'train': config["train"]["step-2"],
         'classifier_loss': C_stats['test_loss'],
+        'classifier': C_name,
         'classifier_args': C_args,
         'classifier_params': C_params
     })
@@ -241,6 +239,7 @@ def main():
         mod_gan_seed = step_2_seeds[i]
 
         for c_path in classifier_paths:
+            C_name = os.path.splitext(os.path.basename(c_path))[0]
             C, C_params, C_stats, C_args = construct_classifier_from_checkpoint(
                 c_path, device=device)
             C.to(device)
@@ -270,7 +269,7 @@ def main():
             for weight in weights:
                 train_modified_gan(config, dataset, cp_dir, best_cp_dir,
                                    test_noise, fid_metrics,
-                                   C, C_params, C_stats, C_args, c_path,
+                                   C, C_name, C_params, C_stats, C_args,
                                    weight, fixed_noise, num_classes, device, mod_gan_seed, run_id)
 
 

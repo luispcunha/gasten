@@ -12,6 +12,7 @@ config_schema = Schema({
     "fid-stats-path": os.path.exists,
     "fixed-noise": Or(And(str, os.path.exists), int),
     "test-noise": os.path.exists,
+    Optional("compute-fid"): bool,
     Optional("device", default="cpu"): str,
     Optional("num-workers", default=0): int,
     Optional("num-runs", default=1): int,

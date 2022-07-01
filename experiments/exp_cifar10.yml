@@ -1,5 +1,5 @@
-project: "gasten-mlp"
-name: "exp-mnist-7v1-mlp-0.91_0.94"
+project: "gasten-cifar"
+name: "exp-cifar10-5v3-step1"
 out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
 data-dir: "/home/lcunha/data"
 test-noise: "/home/lcunha/data/z/z_10000_64"
@@ -8,15 +8,15 @@ fixed-noise: 64
 device: cuda:0
 num-workers: 6
 
-fid-stats-path: "/home/lcunha/data/fid-stats/stats.inception.mnist.7v1.npz"
+fid-stats-path: "/home/lcunha/data/fid-stats/stats.inception.cifar10.5v3.npz"
 
 num-runs: 2
 
 dataset:
-  name: "mnist"
+  name: "cifar10"
   binary:
-    pos: 7
-    neg: 1
+    pos: 5
+    neg: 3
 
 model:
   z_dim: 64
@@ -32,18 +32,18 @@ optimizer:
 
 train:
   step-1:
-    epochs: 50
+    epochs: 100
     batch-size: 64
     early-stop:
       criteria: 5
   step-2:
-    epochs: 100
+    epochs: 0
     batch-size: 64
     early-stop:
       criteria: 10
     classifier:
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-2-2.mnist.8165.7v1.pth"
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-2-1.mnist.43436.7v1.pth"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-2-50.fashion-mnist.93072.7v5.pth"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn-2-50.fashion-mnist.36668.7v5.pth"
     weight:
       - 0
       - 0.8
@@ -52,7 +52,5 @@ train:
       - 0.925
       - 0.95
       - 0.975
-
-
 
 

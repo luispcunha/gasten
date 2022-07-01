@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from stg.metrics import fid
 from stg.metrics.fid import get_inception_feature_map_fn
 from stg.utils.checkpoint import construct_classifier_from_checkpoint
-from stg.datasets import get_mnist, get_fashion_mnist
+from stg.datasets import get_mnist, get_fashion_mnist, get_cifar10
 from stg.datasets.utils import BinaryDataset
 
 
@@ -15,10 +15,10 @@ parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', dest='dataroot',
                     default='/home/lcunha/data', help='Dir with dataset')
 parser.add_argument('--dataset', dest='dataset',
-                    default='fashion-mnist', help='Dataset (mnist or fashion-mnist)')
-parser.add_argument('--pos', dest='pos_class', default=7,
+                    default='cifar10', help='Dataset (mnist or fashion-mnist)')
+parser.add_argument('--pos', dest='pos_class', default=5,
                     type=int, help='Positive class for binary classification')
-parser.add_argument('--neg', dest='neg_class', default=5,
+parser.add_argument('--neg', dest='neg_class', default=3,
                     type=int, help='Negative class for binary classification')
 parser.add_argument('--batch-size', type=int, default=64,
                     help='Batch size to use')
@@ -48,6 +48,8 @@ def main():
         dset = get_mnist(args.dataroot)
     elif args.dataset == 'fashion-mnist':
         dset = get_fashion_mnist(args.dataroot)
+    elif args.dataset == 'cifar10':
+        dset = get_cifar10(args.dataroot)
     else:
         print("invalid dataset", args.dataset)
         exit(-1)

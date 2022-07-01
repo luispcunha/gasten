@@ -2,8 +2,9 @@ import torch.nn as nn
 
 
 class Classifier(nn.Module):
-    def __init__(self, num_channels, num_classes, nf):
+    def __init__(self, img_size, num_classes, nf):
         super(Classifier, self).__init__()
+        num_channels = img_size[0]
 
         self.blocks = nn.ModuleList()
         block_1 = nn.Sequential(
