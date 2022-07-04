@@ -5,8 +5,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from pytorch_metric_learning import samplers
 from dotenv import load_dotenv
+import os
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from stg.datasets import load_dataset
 from stg.metrics.accuracy import binary_accuracy, multiclass_accuracy
@@ -132,13 +134,13 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', dest='data_dir',
-                        default='/home/lcunha/data', help='Path to dataset')
+                        default='/home/luispcunha/repos/gasten/data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir',
-                        default='/media/TOSHIBA6T/LCUNHA/msc/classifiers', help='Path to generated files')
+                        default='/home/luispcunha/repos/gasten/out/classifiers', help='Path to generated files')
     parser.add_argument('--name', dest='name', default=None,
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
-                        default='cifar10', help='Dataset (mnist or fashion-mnist)')
+                        default='mnist', help='Dataset (mnist or fashion-mnist)')
     parser.add_argument('--pos', dest='pos_class', default=5,
                         type=int, help='Positive class for binary classification')
     parser.add_argument('--neg', dest='neg_class', default=3,
@@ -146,16 +148,16 @@ def parse_args():
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=64, help='Batch size')
     parser.add_argument('--classifier-type', dest='c_type',
-                        type=str, help='"cnn" or "mlp"', default='cnn')
-    parser.add_argument('--epochs', type=int, default=50,
+                        type=str, help='"cnn" or "mlp"', default='mlp')
+    parser.add_argument('--epochs', type=int, default=1,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
                         type=int, default=3, help='Early stopping criteria')
     parser.add_argument('--lr', type=float, default=1e-3,
                         help='ADAM opt learning rate')
-    parser.add_argument('--nf', type=int, default=4, help='Num features')
+    parser.add_argument('--nf', type=int, default=2, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
-    parser.add_argument('--device', default='cuda:0',
+    parser.add_argument('--device', default='cpu',
                         help='Device to run experiments (cpu, cuda:0, cuda:1, ...')
 
     return parser.parse_args()
@@ -239,6 +241,45 @@ def main():
 
     cp_path = checkpoint(best_C, name, model_params, stats,
                          args, output_dir=args.out_dir)
+
+    train_dataloader = torch.utils.data.DataLoader(
+        dataset, batch_size=args.batch_size, shuffle=False)
+
+    train_y_hat = torch.zeros_like(dataset.targets, dtype=float)
+    i = 0
+    for X, y in train_dataloader:
+        with torch.no_grad():
+            y_hat = best_C(X)
+
+        train_y_hat[i:i+y_hat.size(0)] = y_hat
+        i += y_hat.size(0)
+
+    test_dataloader = torch.utils.data.DataLoader(
+        test_set, batch_size=args.batch_size, shuffle=False)
+    test_y_hat = torch.zeros_like(test_set.targets, dtype=float)
+    i = 0
+    for X, y in test_dataloader:
+
+        with torch.no_grad():
+            y_hat = best_C(X)
+
+        test_y_hat[i:i+y_hat.size(0)] = y_hat
+        i += y_hat.size(0)
+
+    # cp_path = checkpoint(best_C, name, model_params, stats,
+    #                     args, output_dir=args.out_dir)
+
+    np.save(os.path.join(cp_path, 'train_y_hat'),
+            train_y_hat, allow_pickle=False)
+    np.save(os.path.join(cp_path, 'test_y_hat'),
+            test_y_hat, allow_pickle=False)
+
+    # sns.histplot(data=train_y_hat, stat='proportion', bins=20)
+    # plt.show()
+
+    # sns.histplot(data=test_y_hat, stat='proportion', bins=20)
+    # plt.show()
+
     print('')
     print(' > Saved checkpoint to {}'.format(cp_path))
 

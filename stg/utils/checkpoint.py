@@ -10,9 +10,8 @@ from stg.gan.architectures.dcgan import Generator, Discriminator
 
 def checkpoint(model, model_name, model_params, train_stats, args, output_dir=None, optimizer=None):
     output_dir = os.path.curdir if output_dir is None else output_dir
-
+    output_dir = os.path.join(output_dir, model_name)
     os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, '{}.pth'.format(model_name))
 
     save_dict = {
         'name': model_name,
@@ -23,14 +22,14 @@ def checkpoint(model, model_name, model_params, train_stats, args, output_dir=No
     }
 
     json.dump({'train_stats': train_stats, 'model_params': model_params, 'args': vars(args)},
-              open(os.path.join(output_dir, '{}.json'.format(model_name)), 'w'), indent=2)
+              open(os.path.join(output_dir, 'stats.json'), 'w'), indent=2)
 
     if optimizer is not None:
         save_dict['optimizer'] = optimizer.state_dict()
 
-    torch.save(save_dict, path)
+    torch.save(save_dict, os.path.join(output_dir, 'classifier.pth'))
 
-    return path
+    return output_dir
 
 
 def load_checkpoint(path, model, device=None, optimizer=None):
