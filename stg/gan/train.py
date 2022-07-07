@@ -25,15 +25,17 @@ def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device):
     num_batches = math.ceil(test_noise.size(0) / batch_size)
 
     for _ in tqdm(range(num_batches), desc="Evaluating"):
-        batch_z = test_noise[start_idx:start_idx +
-                             min(batch_size, test_noise.size(0) - start_idx)]
+        real_size = min(batch_size, test_noise.size(0) - start_idx)
+
+        batch_z = test_noise[start_idx:start_idx + real_size]
+
         with torch.no_grad():
             batch_gen = G(batch_z.to(device))
 
         for metric_name, metric in fid_metrics.items():
-            metric.update(batch_gen)
+            metric.update(batch_gen, (start_idx, real_size))
 
-        start_idx += batch_z.shape[0]
+        start_idx += batch_z.size(0)
 
     for metric_name, metric in fid_metrics.items():
         result = metric.finalize()

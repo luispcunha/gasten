@@ -1,5 +1,6 @@
 from .simple_cnn import Classifier as SimpleCNN
 from .my_mlp import Classifier as MyMLP
+from .classifier_cache import ClassifierCache
 
 
 def construct_classifier(params, device=None):

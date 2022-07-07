@@ -340,12 +340,12 @@ def get_inception_feature_map_fn(device):
     model = InceptionV3([block_idx]).to(device)
     model.eval()
 
-    def get_feature_map_fn(batch):
+    def get_feature_map_fn(images, batch_idx, batch):
         # if image is grayscale, replicate channel 3 times
-        if batch.size(1) == 1:
-            batch = batch.expand(-1, 3, -1, -1)
+        if images.size(1) == 1:
+            images = images.expand(-1, 3, -1, -1)
 
-        pred = model(batch)[0]
+        pred = model(images)[0]
 
         # If model output is not scalar, apply global spatial average pooling.
         # This happens if you choose a dimensionality not equal 2048.

@@ -1,4 +1,4 @@
-project: "gasten-test-arch"
+project: "gasten-test-hist"
 name: "exp-mnist-7v1"
 out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
 data-dir: "/home/lcunha/data"
@@ -32,7 +32,7 @@ optimizer:
 
 train:
   step-1:
-    epochs: 30
+    epochs: 0
     batch-size: 64
     early-stop:
       criteria: 5
@@ -42,10 +42,9 @@ train:
     early-stop:
       criteria: 10
     classifier:
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn.mnist.7v1.3.pth"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-8-2.mnist.54044.7v1"
     weight:
-      - 0.6
-      - 0.7
+      - 0.94
 
 
 

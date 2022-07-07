@@ -15,6 +15,7 @@ from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, ge
 from stg.utils.config import read_config
 from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
 from stg.gan import construct_gan
+from stg.classifier import ClassifierCache
 
 
 def parse_args():
@@ -246,10 +247,13 @@ def main():
             C.eval()
             C.output_feature_maps = True
 
-            def get_feature_map_fn(batch):
-                return C(batch, output_feature_maps=True)[-2]
+            class_cache = ClassifierCache(C)
 
-            dims = get_feature_map_fn(dataset.data[0:1].to(device)).size(1)
+            def get_feature_map_fn(images, batch_idx, batch_size):
+                return class_cache.get(images, batch_idx, batch_size, output_feature_maps=True)[1]
+
+            dims = get_feature_map_fn(
+                dataset.data[0:1].to(device), 0, 1).size(1)
 
             print(" > Computing statistics using original dataset")
             mu, sigma = compute_dataset_fid_stats(
@@ -258,7 +262,8 @@ def main():
 
             our_class_fid = fid.FID(get_feature_map_fn, dims,
                                     test_noise.size(0), mu, sigma, device=device)
-            conf_dist = LossSecondTerm(C)
+
+            conf_dist = LossSecondTerm(class_cache)
 
             fid_metrics = {
                 'fid': original_fid,

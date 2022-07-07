@@ -84,10 +84,10 @@ def main():
         model.eval()
         model.output_feature_maps = True
 
-        def get_feature_map_fn(batch):
-            return model(batch)[-2]
+        def get_feature_map_fn(images, batch):
+            return model(images, batch)[1]
 
-        dims = get_feature_map_fn(dset.data[0:1]).size(1)
+        dims = get_feature_map_fn(dset.data[0:1], (0, 1)).size(1)
 
     m, s = fid.calculate_activation_statistics_dataloader(
         dataloader, get_feature_map_fn, dims=dims, device=device)

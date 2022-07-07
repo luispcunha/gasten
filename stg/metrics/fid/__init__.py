@@ -19,9 +19,11 @@ class FID(Metric):
         self.sigma_real = sigma_real
         self.device = device
 
-    def update(self, images):
+    def update(self, images, batch):
+        start_idx, batch_size = batch
+
         with torch.no_grad():
-            pred = self.feature_map_fn(images)
+            pred = self.feature_map_fn(images, start_idx, batch_size)
 
         pred = pred.cpu().numpy()
         self.pred_arr[self.cur_idx:self.cur_idx + pred.shape[0]] = pred
@@ -32,7 +34,8 @@ class FID(Metric):
         mu = np.mean(act, axis=0)
         sigma = np.cov(act, rowvar=False)
 
-        self.result = calculate_frechet_distance(mu, sigma, self.mu_real, self.sigma_real, eps=self.eps)
+        self.result = calculate_frechet_distance(
+            mu, sigma, self.mu_real, self.sigma_real, eps=self.eps)
 
         return self.result
 

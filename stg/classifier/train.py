@@ -33,8 +33,8 @@ def evaluate(C, device, dataloader, criterion, acc_fun, verbose=True, desc='Vali
         X = X.to(device)
         y = y.to(device)
 
-        torch.no_grad()
-        y_hat = C(X)
+        with torch.no_grad():
+            y_hat = C(X)
         loss = criterion(y_hat, y)
 
         running_accuracy += acc_fun(y_hat, y, avg=False)
@@ -134,22 +134,22 @@ def train(C, opt, crit, train_loader, val_loader, test_loader, acc_fun, args, na
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', dest='data_dir',
-                        default='/home/luispcunha/repos/gasten/data', help='Path to dataset')
+                        default='/home/lcunha/data', help='Path to dataset')
     parser.add_argument('--out-dir', dest='out_dir',
-                        default='/home/luispcunha/repos/gasten/out/classifiers', help='Path to generated files')
+                        default='/media/TOSHIBA6T/LCUNHA/msc/classifiers', help='Path to generated files')
     parser.add_argument('--name', dest='name', default=None,
                         help='Name of the classifier for output files')
     parser.add_argument('--dataset', dest='dataset_name',
                         default='mnist', help='Dataset (mnist or fashion-mnist)')
-    parser.add_argument('--pos', dest='pos_class', default=5,
+    parser.add_argument('--pos', dest='pos_class', default=7,
                         type=int, help='Positive class for binary classification')
-    parser.add_argument('--neg', dest='neg_class', default=3,
+    parser.add_argument('--neg', dest='neg_class', default=1,
                         type=int, help='Negative class for binary classification')
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=64, help='Batch size')
     parser.add_argument('--classifier-type', dest='c_type',
-                        type=str, help='"cnn" or "mlp"', default='mlp')
-    parser.add_argument('--epochs', type=int, default=1,
+                        type=str, help='"cnn" or "mlp"', default='cnn')
+    parser.add_argument('--epochs', type=int, default=2,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
                         type=int, default=3, help='Early stopping criteria')
@@ -274,11 +274,11 @@ def main():
     np.save(os.path.join(cp_path, 'test_y_hat'),
             test_y_hat, allow_pickle=False)
 
-    # sns.histplot(data=train_y_hat, stat='proportion', bins=20)
-    # plt.show()
-
-    # sns.histplot(data=test_y_hat, stat='proportion', bins=20)
-    # plt.show()
+    sns.histplot(data=train_y_hat, stat='proportion', bins=20)
+    plt.savefig(os.path.join(cp_path, 'train_y_hat.svg'), dpi=300)
+    plt.clf()
+    sns.histplot(data=test_y_hat, stat='proportion', bins=20)
+    plt.savefig(os.path.join(cp_path, 'test_y_hat.svg'), dpi=300)
 
     print('')
     print(' > Saved checkpoint to {}'.format(cp_path))

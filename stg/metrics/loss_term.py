@@ -10,9 +10,11 @@ class LossSecondTerm(Metric):
         self.acc = 0
         self.result = float('inf')
 
-    def update(self, images):
+    def update(self, images, batch):
+        start_idx, batch_size = batch
+
         with torch.no_grad():
-            c_output = self.C(images)
+            c_output = self.C.get(images, start_idx, batch_size)
 
         term_2 = (0.5 - c_output).abs().sum().item()
 
