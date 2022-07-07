@@ -11,6 +11,7 @@ from stg.datasets import load_dataset
 from stg.gan.architectures.dcgan import Generator, Discriminator
 from stg.gan.train import train
 from stg.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
+from stg.metrics.c_output_hist import OutputsHistogram
 from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed, seed_worker
 from stg.utils.config import read_config
 from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
@@ -34,7 +35,8 @@ def construct_optimizers(config, G, D):
     return g_optim, d_optim
 
 
-def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metrics,
+def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
+                       fid_metrics, c_out_hist,
                        C, C_name, C_params, C_stats, C_args, weight, fixed_noise, num_classes, device, seed, run_id):
     print("Running experiment with classifier {} and weight {} ...".format(
         C_name, weight))
@@ -91,7 +93,7 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise, fid_metric
         test_noise, fid_metrics,
         early_stop=early_stop,
         start_early_stop_when=('fid', early_stop_crit_step_1),
-        checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise)
+        checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise, c_out_hist=c_out_hist)
 
     wandb.finish()
 
@@ -271,9 +273,11 @@ def main():
                 'conf_dist': conf_dist,
             }
 
+            c_out_hist = OutputsHistogram(class_cache, test_noise.size(0))
+
             for weight in weights:
                 train_modified_gan(config, dataset, cp_dir, best_cp_dir,
-                                   test_noise, fid_metrics,
+                                   test_noise, fid_metrics, c_out_hist,
                                    C, C_name, C_params, C_stats, C_args,
                                    weight, fixed_noise, num_classes, device, mod_gan_seed, run_id)
 

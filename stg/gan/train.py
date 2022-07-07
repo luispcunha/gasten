@@ -6,6 +6,7 @@ from stg.utils import seed_worker
 from tqdm import tqdm
 import math
 from stg.utils import MetricsLogger, make_grid
+import matplotlib.pyplot as plt
 
 
 def loss_terms_to_str(loss_items):
@@ -16,7 +17,7 @@ def loss_terms_to_str(loss_items):
     return result
 
 
-def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device):
+def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device, c_out_hist):
     # Compute evaluation metrics on fixed noise (Z) set
     training = G.training
     G.eval()
@@ -35,12 +36,20 @@ def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device):
         for metric_name, metric in fid_metrics.items():
             metric.update(batch_gen, (start_idx, real_size))
 
+        c_out_hist.update(batch_gen, (start_idx, real_size))
+
         start_idx += batch_z.size(0)
 
     for metric_name, metric in fid_metrics.items():
         result = metric.finalize()
         stats_logger.update_epoch(metric_name, result, prnt=True)
         metric.reset()
+
+    c_out_hist.plot()
+    stats_logger.log_plot('histogram')
+    c_out_hist.reset()
+
+    plt.clf()
 
     if training:
         G.train()
@@ -50,7 +59,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
           d_opt, d_crit, test_noise, fid_metrics,
           early_stop=None,  # Tuple of (key, crit)
           start_early_stop_when=None,  # Tuple of (key, crit):
-          checkpoint_dir=None, checkpoint_every=1, fixed_noise=None):
+          checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, c_out_hist=None):
 
     fixed_noise = torch.randn(
         64, G.z_dim, device=device) if fixed_noise is None else fixed_noise
@@ -93,7 +102,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
     for metric_name in fid_metrics.keys():
         eval_metrics.add(metric_name)
 
-    eval_metrics.add_media_log('samples')
+    eval_metrics.add_media_metric('samples')
+    eval_metrics.add_media_metric('histogram')
 
     with torch.no_grad():
         G.eval()
@@ -196,12 +206,13 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
             G.train()
 
         # Compute epoch FID on fixed set
-        evaluate(G, fid_metrics, eval_metrics, batch_size, test_noise, device)
+        evaluate(G, fid_metrics, eval_metrics, batch_size,
+                 test_noise, device, c_out_hist)
         eval_metrics.finalize_epoch()
 
         img = make_grid(fake)
         checkpoint_image(img, epoch + 1, output_dir=checkpoint_dir)
-        eval_metrics.log_media('samples', img)
+        eval_metrics.log_image('samples', img)
 
         if ((epoch + 1) % checkpoint_every) == 0:
             latest_cp = checkpoint_gan(

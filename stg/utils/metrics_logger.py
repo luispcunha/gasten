@@ -1,4 +1,5 @@
 import wandb
+import matplotlib.pyplot as plt
 
 
 class MetricsLogger:
@@ -12,11 +13,14 @@ class MetricsLogger:
         self.step_counter = 0
         self.log_epoch = log_epoch
 
-    def add_media_log(self, name):
+    def add_media_metric(self, name):
         wandb.define_metric(name, step_metric=self.apply_prefix('epoch'))
 
-    def log_media(self, name, image, caption=None):
+    def log_image(self, name, image, caption=None):
         wandb.log({name: wandb.Image(image, caption=caption)})
+
+    def log_plot(self, name):
+        wandb.log({name: plt})
 
     def apply_prefix(self, name):
         return f'{self.prefix}/{name}' if self.prefix is not None else name
