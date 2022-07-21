@@ -16,7 +16,7 @@ parser.add_argument('--data', dest='dataroot',
                     default='/home/lcunha/data', help='Dir with dataset')
 parser.add_argument('--dataset', dest='dataset',
                     default='cifar10', help='Dataset (mnist or fashion-mnist)')
-parser.add_argument('--pos', dest='pos_class', default=5,
+parser.add_argument('--pos', dest='pos_class', default=None,
                     type=int, help='Positive class for binary classification')
 parser.add_argument('--neg', dest='neg_class', default=3,
                     type=int, help='Negative class for binary classification')

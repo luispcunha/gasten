@@ -148,7 +148,7 @@ def parse_args():
     parser.add_argument('--batch-size', dest='batch_size',
                         type=int, default=64, help='Batch size')
     parser.add_argument('--classifier-type', dest='c_type',
-                        type=str, help='"cnn" or "mlp"', default='cnn')
+                        type=str, help='"cnn" or "mlp"', default='mlp')
     parser.add_argument('--epochs', type=int, default=2,
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',

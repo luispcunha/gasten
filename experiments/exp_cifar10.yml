@@ -1,29 +1,32 @@
-project: "gasten-cifar"
-name: "exp-cifar10-5v3-step1"
+project: "cifar10"
+name: "dcgan-z256"
 out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
 data-dir: "/home/lcunha/data"
-test-noise: "/home/lcunha/data/z/z_10000_64"
+test-noise: "/home/lcunha/data/z/z_10000_256"
 fixed-noise: 64
 
 device: cuda:0
 num-workers: 6
 
-fid-stats-path: "/home/lcunha/data/fid-stats/stats.inception.cifar10.5v3.npz"
+fid-stats-path: "/home/lcunha/data/fid-stats/stats.inception.cifar10.npz"
 
-num-runs: 2
+num-runs: 1
+step-1-seeds:
+  - 8000
 
 dataset:
   name: "cifar10"
-  binary:
-    pos: 5
-    neg: 3
 
 model:
-  z_dim: 64
+  z_dim: 256
   g_filter_dim: 64
   d_filter_dim: 64
-  g_num_blocks: 3
-  d_num_blocks: 3
+  g_num_blocks: 4
+  d_num_blocks: 4
+  loss:
+    name: "wgan-gp"
+    args:
+      lambda: 10
 
 optimizer:
   lr: 0.0002
@@ -34,13 +37,9 @@ train:
   step-1:
     epochs: 100
     batch-size: 64
-    early-stop:
-      criteria: 5
   step-2:
     epochs: 0
     batch-size: 64
-    early-stop:
-      criteria: 10
     classifier:
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-2-50.fashion-mnist.93072.7v5.pth"
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn-2-50.fashion-mnist.36668.7v5.pth"

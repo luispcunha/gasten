@@ -127,7 +127,7 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, image_size, n_blocks=2, filter_dim=64):
+    def __init__(self, image_size, n_blocks=2, filter_dim=64, use_batch_norm=True, is_critic=False):
         super(Discriminator, self).__init__()
         self.image_size = image_size
         self.filter_dim = filter_dim
@@ -152,7 +152,8 @@ class Discriminator(nn.Module):
                 in_channels = filter_dim * 2 ** (i - 1)
                 block = nn.Sequential(
                     nn.Conv2d(in_channels, out_channels, 5, 2, 2, bias=False),
-                    nn.BatchNorm2d(out_channels),
+                    nn.BatchNorm2d(
+                        out_channels) if use_batch_norm else nn.Identity(),
                     nn.LeakyReLU(0.2, inplace=True)
                 )
 
@@ -162,9 +163,11 @@ class Discriminator(nn.Module):
             # (b, ndf * 2, 7, 7)
             nn.Flatten(),
             nn.Linear(filter_dim * 2 ** (n_blocks - 1) * cur_s_h * cur_s_w, 1),
-            nn.Sigmoid()
             # (b, 1)
         )
+
+        if not is_critic:
+            self.predict.append(nn.Sigmoid())
 
         self.apply(weights_init)
 

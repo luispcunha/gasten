@@ -36,7 +36,8 @@ def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device, c_out
         for metric_name, metric in fid_metrics.items():
             metric.update(batch_gen, (start_idx, real_size))
 
-        c_out_hist.update(batch_gen, (start_idx, real_size))
+        if c_out_hist is not None:
+            c_out_hist.update(batch_gen, (start_idx, real_size))
 
         start_idx += batch_z.size(0)
 
@@ -45,11 +46,11 @@ def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device, c_out
         stats_logger.update_epoch(metric_name, result, prnt=True)
         metric.reset()
 
-    c_out_hist.plot()
-    stats_logger.log_plot('histogram')
-    c_out_hist.reset()
-
-    plt.clf()
+    if c_out_hist is not None:
+        c_out_hist.plot()
+        stats_logger.log_plot('histogram')
+        c_out_hist.reset()
+        plt.clf()
 
     if training:
         G.train()
@@ -78,7 +79,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
     }
 
     early_stop_state = 2
-    if early_stop is not None:
+    if early_stop[1] is not None:
         early_stop_key, early_stop_crit = early_stop
         early_stop_state = 1
         if start_early_stop_when is not None:
@@ -97,6 +98,9 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
     train_metrics.add('D_acc_fake_2', every_step=True)
 
     for loss_term in g_crit.get_loss_terms():
+        train_metrics.add(loss_term, every_step=True)
+
+    for loss_term in d_crit.get_loss_terms():
         train_metrics.add(loss_term, every_step=True)
 
     for metric_name in fid_metrics.keys():
@@ -158,7 +162,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
                 "D_acc_fake_1", D_acc_fake_1, cur_batch_size)
 
             # Compute loss, gradients and update net
-            d_loss = d_crit(device, d_output_real, d_output_fake)
+            d_loss, d_loss_terms = d_crit(real_data, fake_data,
+                                          d_output_real, d_output_fake, device)
             d_loss.backward()
             d_opt.step()
 
@@ -182,6 +187,10 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
             g_opt.step()
 
             for loss_term_name, loss_term_value in g_loss_terms.items():
+                train_metrics.update_step(
+                    loss_term_name, loss_term_value, cur_batch_size)
+
+            for loss_term_name, loss_term_value in d_loss_terms.items():
                 train_metrics.update_step(
                     loss_term_name, loss_term_value, cur_batch_size)
 

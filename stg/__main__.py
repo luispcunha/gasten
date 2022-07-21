@@ -8,14 +8,13 @@ import wandb
 
 from stg.metrics import fid, LossSecondTerm
 from stg.datasets import load_dataset
-from stg.gan.architectures.dcgan import Generator, Discriminator
 from stg.gan.train import train
-from stg.gan.loss import RegularGeneratorLoss, DiscriminatorLoss, NewGeneratorLossBinary, NewGeneratorLoss
+from stg.gan.loss import ThresholdDistBinary_GeneratorLoss
 from stg.metrics.c_output_hist import OutputsHistogram
 from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed, seed_worker
 from stg.utils.config import read_config
 from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint
-from stg.gan import construct_gan
+from stg.gan import construct_gan, construct_loss
 from stg.classifier import ClassifierCache
 
 
@@ -49,14 +48,16 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
 
     G, D, _, _ = construct_gan_from_checkpoint(
         gan_path, device=device)
-    d_crit = DiscriminatorLoss()
+
+    orig_g_crit, d_crit = construct_loss(config["model"]["loss"], D)
 
     g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
 
     if num_classes == 2:
-        g_crit = NewGeneratorLossBinary(C, beta=weight)
+        g_crit = ThresholdDistBinary_GeneratorLoss(
+            orig_g_crit, C, alpha=weight)
     else:
-        g_crit = NewGeneratorLoss(C, beta=weight)
+        raise NotImplementedError
 
     early_stop_key = 'conf_dist'
     early_stop_crit = None if 'early-stop' not in config['train']['step-2'] \
@@ -139,8 +140,6 @@ def main():
 
     dataset, num_classes, img_size = load_dataset(
         config["dataset"]["name"], config["data-dir"], pos_class, neg_class)
-    g_crit = RegularGeneratorLoss()
-    d_crit = DiscriminatorLoss()
 
     num_workers = config["num-workers"]
     print(" > Num workers", num_workers)
@@ -182,6 +181,7 @@ def main():
         G, D = construct_gan(
             config["model"], img_size, device)
         g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
+        g_crit, d_crit = construct_loss(config["model"]["loss"], D)
 
         print("Storing generated artifacts in {}".format(cp_dir))
         original_gan_cp_dir = os.path.join(cp_dir, 'step-1')

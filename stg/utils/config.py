@@ -1,6 +1,7 @@
 import os
 import yaml
 from stg.datasets import valid_dataset
+from stg.gan.loss import valid_loss
 from schema import Schema, SchemaError, Optional, And, Or
 
 
@@ -27,7 +28,15 @@ config_schema = Schema({
         "g_filter_dim": int,
         "d_filter_dim": int,
         "g_num_blocks": int,
-        "d_num_blocks": int
+        "d_num_blocks": int,
+        "loss": Or({
+            "name": "wgan-gp",
+            "args": {
+                "lambda": int,
+            }
+        }, {
+            "name": "ns"
+        })
     },
     "optimizer": {
         "lr": float,
