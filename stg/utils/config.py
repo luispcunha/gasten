@@ -40,13 +40,14 @@ config_schema = Schema({
     },
     "optimizer": {
         "lr": float,
-        "beta1": float,
-        "beta2": float,
+        "beta1": Or(float, int),
+        "beta2": Or(float, int),
     },
     "train": {
         "step-1": Or(And(str, os.path.exists), {
             "epochs": int,
             "batch-size": int,
+            "disc-iters": int,
             Optional("early-stop"): {
                 "criteria": int,
             }
@@ -57,6 +58,7 @@ config_schema = Schema({
             },
             "epochs": int,
             "batch-size": int,
+            "disc-iters": int,
             "classifier": [And(str, os.path.exists)],
             "weight": [And(Or(int, float), lambda n: 0 <= n <= 1)]
         }

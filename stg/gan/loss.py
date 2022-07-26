@@ -33,7 +33,7 @@ class NS_DiscriminatorLoss(DiscriminatorLoss):
         ones = torch.ones_like(real_output, dtype=torch.float, device=device)
         zeros = torch.zeros_like(fake_output, dtype=torch.float, device=device)
 
-        return F.binary_cross_entropy(real_output, ones) + F.binary_cross_entropy(fake_output, zeros)
+        return F.binary_cross_entropy(real_output, ones) + F.binary_cross_entropy(fake_output, zeros), {}
 
 
 class W_DiscrimatorLoss(DiscriminatorLoss):
@@ -44,7 +44,7 @@ class W_DiscrimatorLoss(DiscriminatorLoss):
         d_loss_real = -real_output.mean()
         d_loss_fake = fake_output.mean()
 
-        return d_loss_real + d_loss_fake
+        return d_loss_real + d_loss_fake, {}
 
 
 class WGP_DiscriminatorLoss(DiscriminatorLoss):
@@ -84,7 +84,7 @@ class WGP_DiscriminatorLoss(DiscriminatorLoss):
 
         w_distance = - d_loss_real - d_loss_fake
 
-        return d_loss + self.lmbda * gradient_penalty, {'W_distance': w_distance, 'D_loss': d_loss, 'GP': gradient_penalty}
+        return d_loss + self.lmbda * gradient_penalty, {'W_distance': w_distance.item(), 'D_loss': d_loss.item(), 'GP': gradient_penalty.item()}
 
 
 class GeneratorLoss:

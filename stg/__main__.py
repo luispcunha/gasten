@@ -45,6 +45,7 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
 
     batch_size = config['train']['step-2']['batch-size']
     n_epochs = config['train']['step-2']['epochs']
+    n_disc_iters = config['train']['step-2']['disc-iters']
 
     G, D, _, _ = construct_gan_from_checkpoint(
         gan_path, device=device)
@@ -92,6 +93,7 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
         G, g_optim, g_crit,
         D, d_optim, d_crit,
         test_noise, fid_metrics,
+        n_disc_iters,
         early_stop=early_stop,
         start_early_stop_when=('fid', early_stop_crit_step_1),
         checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise, c_out_hist=c_out_hist)
@@ -192,6 +194,7 @@ def main():
         if type(config['train']['step-1']) != str:
             batch_size = config['train']['step-1']['batch-size']
             n_epochs = config['train']['step-1']['epochs']
+            n_disc_iters = config['train']['step-1']['disc-iters']
 
             fid_metrics = {
                 'fid': original_fid
@@ -225,6 +228,7 @@ def main():
                 G, g_optim, g_crit,
                 D, d_optim, d_crit,
                 test_noise, fid_metrics,
+                n_disc_iters,
                 early_stop=early_stop,
                 checkpoint_dir=original_gan_cp_dir, fixed_noise=fixed_noise)
 
