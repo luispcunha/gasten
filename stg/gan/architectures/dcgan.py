@@ -175,6 +175,5 @@ class Discriminator(nn.Module):
         for block in self.conv_blocks:
             x = block(x)
 
-        x = self.predict(x)
+        return self.predict(x).squeeze()
 
-        return x  # self.predict(x)

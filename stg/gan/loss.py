@@ -56,21 +56,21 @@ class WGP_DiscriminatorLoss(DiscriminatorLoss):
     def calc_gradient_penalty(self, real_data, fake_data, device):
         batch_size = real_data.size(0)
 
-        alpha = torch.rand(batch_size, 1, 1, 1)
-        alpha = alpha.expand(real_data.size())
-        alpha = alpha.to(device)
+        alpha = torch.rand(batch_size, 1, 1, 1, device=device)
+        alpha = alpha.expand_as(real_data)
 
         interpolates = real_data + alpha * (fake_data - real_data)
         interpolates = autograd.Variable(interpolates, requires_grad=True)
 
         disc_interpolates = self.D(interpolates)
+        grad_outputs = torch.ones(disc_interpolates.size(), device=device)
 
         gradients = autograd.grad(outputs=disc_interpolates, inputs=interpolates,
-                                  grad_outputs=torch.ones(
-                                      disc_interpolates.size(), device=device),
+                                  grad_outputs=grad_outputs,
                                   create_graph=True, retain_graph=True)[0]
 
-        gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
+        gradients_norm = torch.sqrt(torch.sum(gradients ** 2, dim=[1, 2, 3]))
+        gradient_penalty = ((gradients_norm - 1.) ** 2).mean()
 
         return gradient_penalty
 
