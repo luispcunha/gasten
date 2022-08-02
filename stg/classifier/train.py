@@ -175,10 +175,10 @@ def main():
 
     device = torch.device("cpu" if args.device is None else args.device)
     print(" > Using device", device)
-    name = '{}-{}-{}.{}.{}'.format(args.c_type, args.nf, args.epochs,
-                                   args.dataset_name,
-                                   args.seed) if args.name is None else args.name
+    name = '{}-{}-{}.{}'.format(args.c_type, args.nf, args.epochs,
+                                args.seed) if args.name is None else args.name
 
+    dset_name = args.dataset_name
     dataset, num_classes, img_size = load_dataset(args.dataset_name, args.data_dir,
                                                   pos_class=args.pos_class, neg_class=args.neg_class)
 
@@ -188,8 +188,10 @@ def main():
     if binary_classification:
         print("\t> Binary classification between ",
               args.pos_class, "and", args.neg_class)
-        name = '{}.{}v{}'.format(
-            name, args.pos_class, args.neg_class) if args.name is None else args.name
+        dset_name = '{}.{}v{}'.format(
+            dset_name, args.pos_class, args.neg_class)
+
+    out_dir = os.path.join(args.out_dir, dset_name)
 
     train_set, val_set = torch.utils.data.random_split(dataset,
                                                        [int(5/6*len(dataset)), len(dataset) - int(5/6*len(dataset))])
@@ -240,7 +242,7 @@ def main():
     print('test loss. =', test_loss)
 
     cp_path = checkpoint(best_C, name, model_params, stats,
-                         args, output_dir=args.out_dir)
+                         args, output_dir=out_dir)
 
     train_dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=False)
@@ -282,6 +284,11 @@ def main():
 
     print('')
     print(' > Saved checkpoint to {}'.format(cp_path))
+
+    print('')
+    print(cp_path)
+    print(test_acc)
+    print(test_loss)
 
 
 if __name__ == '__main__':

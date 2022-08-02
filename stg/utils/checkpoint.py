@@ -97,12 +97,26 @@ def construct_gan_from_checkpoint(path, device=None):
     return G, D, g_optim, d_optim
 
 
+def get_gan_path_at_epoch(output_dir, epoch=None):
+    path = output_dir
+    if epoch is not None:
+        path = os.path.join(path, '{:02d}'.format(epoch))
+    return path
+
+
+def load_gan_train_state(gan_path):
+    path = os.path.join(gan_path, 'train_state.json')
+
+    with open(path) as in_f:
+        train_state = json.load(in_f)
+
+    return train_state
+
+
 def checkpoint_gan(G, D, g_opt, d_opt, state, stats, config, output_dir=None, epoch=None):
     rootdir = os.path.curdir if output_dir is None else output_dir
 
-    path = rootdir
-    if epoch is not None:
-        path = os.path.join(path, '{:02d}'.format(epoch))
+    path = get_gan_path_at_epoch(rootdir, epoch=epoch)
 
     os.makedirs(path, exist_ok=True)
 
@@ -121,7 +135,7 @@ def checkpoint_gan(G, D, g_opt, d_opt, state, stats, config, output_dir=None, ep
     json.dump(stats, open(os.path.join(rootdir, 'stats.json'), 'w'), indent=2)
     json.dump(config, open(os.path.join(path, 'config.json'), 'w'), indent=2)
 
-    print('\t> Saved checkpoint checkpoint to {}'.format(path))
+    print('> Saved checkpoint checkpoint to {}'.format(path))
 
     return path
 

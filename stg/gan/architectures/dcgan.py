@@ -118,10 +118,7 @@ class Generator(nn.Module):
         z: input (batch_size, z_dim)
         """
         z = self.project(z)
-
-        z = self.conv_blocks[0](z.view(-1, *self.project_out_reshape_dim))
-        for block in self.conv_blocks[1:]:
-            z = block(z)
+        z = self.conv_blocks(z.view(-1, *self.project_out_reshape_dim))
 
         return z
 
@@ -153,7 +150,7 @@ class Discriminator(nn.Module):
                 block = nn.Sequential(
                     nn.Conv2d(in_channels, out_channels, 5, 2, 2, bias=False),
                     nn.BatchNorm2d(
-                        out_channels) if use_batch_norm else nn.Identity(),
+                        out_channels) if use_batch_norm else nn.LayerNorm([out_channels, cur_s_h, cur_s_w]),
                     nn.LeakyReLU(0.2, inplace=True)
                 )
 
@@ -176,4 +173,3 @@ class Discriminator(nn.Module):
             x = block(x)
 
         return self.predict(x).squeeze()
-

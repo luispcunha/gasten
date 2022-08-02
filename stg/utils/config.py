@@ -25,10 +25,17 @@ config_schema = Schema({
     },
     "model": {
         "z_dim": int,
-        "g_filter_dim": int,
-        "d_filter_dim": int,
-        "g_num_blocks": int,
-        "d_num_blocks": int,
+        "architecture": Or({
+            "name": "dcgan",
+            "g_filter_dim": int,
+            "d_filter_dim": int,
+            "g_num_blocks": int,
+            "d_num_blocks": int,
+        }, {
+            "name": "resnet",
+            "g_filter_dim": int,
+            "d_filter_dim": int,
+        }),
         "loss": Or({
             "name": "wgan-gp",
             "args": {
@@ -53,6 +60,8 @@ config_schema = Schema({
             }
         }),
         "step-2": {
+            # TODO
+            Optional("step-1-epochs", default="best"): [Or(int, "best", "last")],
             Optional("early-stop"): {
                 "criteria": int,
             },
@@ -60,7 +69,7 @@ config_schema = Schema({
             "batch-size": int,
             "disc-iters": int,
             "classifier": [And(str, os.path.exists)],
-            "weight": [And(Or(int, float), lambda n: 0 <= n <= 1)]
+            "weight": [Or(int, float)]
         }
     }
 })

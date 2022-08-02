@@ -42,7 +42,7 @@ def evaluate(G, fid_metrics, stats_logger, batch_size, test_noise, device, c_out
 
     for metric_name, metric in fid_metrics.items():
         result = metric.finalize()
-        stats_logger.update_epoch(metric_name, result, prnt=True)
+        stats_logger.update_epoch_metric(metric_name, result, prnt=True)
         metric.reset()
 
     if c_out_hist is not None:
@@ -61,27 +61,14 @@ def train_disc(G, D, d_opt, d_crit, real_data,
 
     # Real data batch
     real_data = real_data.to(device)
-    d_output_real = D(real_data).view(-1)
-    # D_x = d_output_real.mean().item()
-    # correct = (d_output_real >= 0.5).type(torch.float)
-    # D_acc_real = correct.mean(dim=0).item()
-
-    # train_metrics.update_step("D_x", D_x, batch_size)
-    # train_metrics.update_step("D_acc_real", D_acc_real, batch_size)
+    d_output_real = D(real_data)
 
     # Fake data batch
     noise = torch.randn(batch_size, G.z_dim, device=device)
     with torch.no_grad():
         fake_data = G(noise)
 
-    d_output_fake = D(fake_data.detach()).view(-1)
-    # D_G_z1 = d_output_fake.mean().item()
-    # correct = (d_output_fake < 0.5).type(torch.float)
-    # D_acc_fake_1 = correct.mean(dim=0).item()
-
-    # train_metrics.update_step("D_G_z1", D_G_z1, batch_size)
-    # train_metrics.update_step(
-    #     "D_acc_fake_1", D_acc_fake_1, batch_size)
+    d_output_fake = D(fake_data.detach())
 
     # Compute loss, gradients and update net
     d_loss, d_loss_terms = d_crit(real_data, fake_data,
@@ -89,11 +76,10 @@ def train_disc(G, D, d_opt, d_crit, real_data,
     d_loss.backward()
     d_opt.step()
 
-    # for loss_term_name, loss_term_value in d_loss_terms.items():
-    #     train_metrics.update_step(
-    #         loss_term_name, loss_term_value, batch_size)
+    for loss_term_name, loss_term_value in d_loss_terms.items():
+        train_metrics.update_it_metric(loss_term_name, loss_term_value)
 
-    # train_metrics.update_step('D_loss', d_loss.item(), batch_size)
+    train_metrics.update_it_metric('D_loss', d_loss.item())
 
     return d_loss, d_loss_terms
 
@@ -105,49 +91,35 @@ def train_gen(G, D, g_opt, g_crit,
     noise = torch.randn(batch_size, G.z_dim, device=device)
     fake_data = G(noise)
 
-    output = D(fake_data).view(-1)
-    D_G_z2 = output.mean().item()
-    correct = (output < 0.5).type(torch.float)
-    D_acc_fake_2 = correct.mean(dim=0).item()
-
-    # train_metrics.update_step("D_G_z2", D_G_z2, batch_size)
-    # train_metrics.update_step(
-    #     "D_acc_fake_2", D_acc_fake_2, batch_size)
+    output = D(fake_data)
 
     # Compute loss, gradients and update net
     g_loss, g_loss_terms = g_crit(device, output, fake_data)
     g_loss.backward()
     g_opt.step()
 
-    # for loss_term_name, loss_term_value in g_loss_terms.items():
-    #     train_metrics.update_step(
-    #         loss_term_name, loss_term_value, batch_size)
+    for loss_term_name, loss_term_value in g_loss_terms.items():
+        train_metrics.update_it_metric(loss_term_name, loss_term_value)
 
-    # train_metrics.update_step('G_loss', g_loss.item(), batch_size)
+    train_metrics.update_it_metric('G_loss', g_loss.item())
 
     return g_loss, g_loss_terms
 
 
-def get_infinite_dataloader(dataloader):
-    while True:
-        for i, (data, _) in enumerate(dataloader):
-            yield data
-
-
 def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
-          d_opt, d_crit, test_noise, fid_metrics,
-          n_disc_iters,
+          d_opt, d_crit, test_noise, fid_metrics, n_disc_iters,
           early_stop=None,  # Tuple of (key, crit)
           start_early_stop_when=None,  # Tuple of (key, crit):
           checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, c_out_hist=None):
 
     fixed_noise = torch.randn(
         64, G.z_dim, device=device) if fixed_noise is None else fixed_noise
+
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=True, drop_last=True,
         num_workers=config["num-workers"], worker_init_fn=seed_worker)
 
-    train_metrics = MetricsLogger(prefix='train', log_epoch=False)
+    train_metrics = MetricsLogger(prefix='train')
     eval_metrics = MetricsLogger(prefix='eval')
 
     train_state = {
@@ -167,20 +139,14 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
             pre_early_stop_key, pre_early_stop_crit = start_early_stop_when
             early_stop_state = 0
 
-    # train_metrics.add('G_loss', every_step=True)
-    # train_metrics.add('D_loss', every_step=True)
-    # train_metrics.add('D_x', every_step=True)
-    # train_metrics.add('D_G_z1', every_step=True)
-    # train_metrics.add('D_G_z2', every_step=True)
-    # train_metrics.add('D_acc_real', every_step=True)
-    # train_metrics.add('D_acc_fake_1', every_step=True)
-    # train_metrics.add('D_acc_fake_2', every_step=True)
+    train_metrics.add('G_loss', iteration_metric=True)
+    train_metrics.add('D_loss', iteration_metric=True)
 
-    # for loss_term in g_crit.get_loss_terms():
-    #    train_metrics.add(loss_term, every_step=True)
+    for loss_term in g_crit.get_loss_terms():
+        train_metrics.add(loss_term, iteration_metric=True)
 
-    # for loss_term in d_crit.get_loss_terms():
-    #    train_metrics.add(loss_term, every_step=True)
+    for loss_term in d_crit.get_loss_terms():
+        train_metrics.add(loss_term, iteration_metric=True)
 
     for metric_name in fid_metrics.keys():
         eval_metrics.add(metric_name)
@@ -203,97 +169,109 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
     G.train()
     D.train()
 
-    gen_iters = 200000
-    infinite_dataloader = get_infinite_dataloader(dataloader)
+    g_iters_per_epoch = int(math.floor(len(dataloader) / n_disc_iters))
+    iters_per_epoch = g_iters_per_epoch * n_disc_iters
+
+    log_every_g_iter = 50
 
     print("Training...")
-    eval_every = 1000
-    for g_iter in range(gen_iters):
-        # if g_iter % iter_per_epoch == 0:
-        #     epoch += 1
-        #     print("\t> Epoch {}".format(epoch + 1))
-        #     train_metrics.reset_step_metrics()
+    for epoch in range(1, n_epochs+1):
+        data_iter = iter(dataloader)
+        curr_g_iter = 0
 
-        ###
-        # Discriminator
-        ###
-        for _ in range(n_disc_iters):
-            real_data = next(infinite_dataloader)
+        for i in range(1, iters_per_epoch+1):
+            data, _ = next(data_iter)
+            real_data = data.to(device)
+
+            ###
+            # Update Discriminator
+            ###
             d_loss, d_loss_terms = train_disc(
                 G, D, d_opt, d_crit, real_data, batch_size, train_metrics, device)
 
-        ###
-        # Generator
-        ###
-        g_loss, g_loss_terms = train_gen(
-            G, D, g_opt, g_crit, batch_size, train_metrics, device)
+            ###
+            # Update Generator
+            # - update every 'n_disc_iterators' consecutive D updates
+            ###
+            if i % n_disc_iters == 0:
+                curr_g_iter += 1
+
+                g_loss, g_loss_terms = train_gen(
+                    G, D, g_opt, g_crit, batch_size, train_metrics, device)
+
+                ###
+                # Log stats
+                ###
+                if curr_g_iter % log_every_g_iter == 0 or \
+                        curr_g_iter == g_iters_per_epoch:
+                    print('[%d/%d][%d/%d]\tG loss: %.4f %s; D loss: %.4f %s'
+                          % (epoch, n_epochs, curr_g_iter, g_iters_per_epoch, g_loss.item(), loss_terms_to_str(g_loss_terms), d_loss.item(),
+                             loss_terms_to_str(d_loss_terms)))
 
         ###
-        # Log stats
+        # Evaluate after epoch
         ###
-        if ((g_iter + 1) % 50) == 0:
-            print('[%d/%d]\tD loss: %.4f %s\n\t\tG loss: %.4f %s'
-                  % (g_iter + 1, gen_iters, d_loss.item(), loss_terms_to_str(d_loss_terms), g_loss.item(),
-                     loss_terms_to_str(g_loss_terms)))
+        train_state['epoch'] += 1
 
-        # train_metrics.finalize_step(cur_batch_size)
+        train_metrics.finalize_epoch()
 
-        if g_iter > 0 and g_iter % eval_every == 0:
-            # train_metrics.finalize_epoch()
-            #train_state['epoch'] += 1
+        evaluate(G, fid_metrics, eval_metrics, batch_size,
+                 test_noise, device, c_out_hist)
+        eval_metrics.finalize_epoch()
 
-            # Save G's output on fixed noise to analyse its evolution
-            with torch.no_grad():
-                G.eval()
-                fake = G(fixed_noise).detach().cpu()
-                G.train()
+        ###
+        # Sample images
+        ###
+        with torch.no_grad():
+            G.eval()
+            fake = G(fixed_noise).detach().cpu()
+            G.train()
 
-            # Compute epoch FID on fixed set
-            evaluate(G, fid_metrics, eval_metrics, batch_size,
-                     test_noise, device, c_out_hist)
-            eval_metrics.finalize_epoch()
+        img = make_grid(fake)
+        checkpoint_image(img, epoch, output_dir=checkpoint_dir)
+        eval_metrics.log_image('samples', img)
 
-            img = make_grid(fake)
-            checkpoint_image(img, g_iter, output_dir=checkpoint_dir)
-            eval_metrics.log_image('samples', img)
-
-            # if ((epoch + 1) % checkpoint_every) == 0:
+        ###
+        # Checkpoint GAN
+        ###
+        if epoch == n_epochs or epoch % checkpoint_every == 0:
             latest_cp = checkpoint_gan(
-                G, D, g_opt, d_opt, train_state, {"eval": eval_metrics.stats, "train": train_metrics.stats}, config, epoch=g_iter, output_dir=checkpoint_dir)
+                G, D, g_opt, d_opt, train_state, {"eval": eval_metrics.stats, "train": train_metrics.stats}, config, epoch=epoch, output_dir=checkpoint_dir)
 
-            # Early stop
-            if early_stop_state == 0:
-                # Pre early stop phase
-                if eval_metrics.stats[f'eval/{pre_early_stop_key}'][-1] \
-                        < train_state['pre_early_stop_metric']:
-                    train_state['pre_early_stop_tracker'] = 0
-                    train_state['pre_early_stop_metric'] = \
-                        eval_metrics.stats[f'eval/{pre_early_stop_key}'][-1]
-                else:
-                    train_state['pre_early_stop_tracker'] += 1
-                    print(
-                        " > Pre-early stop tracker {}/{}".format(train_state['pre_early_stop_tracker'], pre_early_stop_crit))
-                    if train_state['pre_early_stop_tracker'] \
-                            == pre_early_stop_crit:
-                        early_stop_state = 1
-
-                best_cp = latest_cp
-            elif early_stop_state == 1:
-                # Early stop phase
-                if eval_metrics.stats[f'eval/{early_stop_key}'][-1] < train_state['best_epoch_metric']:
-                    train_state['early_stop_tracker'] = 0
-                    train_state['best_epoch'] = g_iter + 1
-                    train_state['best_epoch_metric'] = eval_metrics.stats[
-                        f'eval/{early_stop_key}'][-1]
-                    best_cp = latest_cp
-                else:
-                    train_state['early_stop_tracker'] += 1
-                    print(
-                        " > Early stop tracker {}/{}".format(train_state['early_stop_tracker'], early_stop_crit))
-                    if train_state['early_stop_tracker'] == early_stop_crit:
-                        break
+        ###
+        # Test for early stopping
+        ###
+        if early_stop_state == 2:
+            best_cp = latest_cp
+        elif early_stop_state == 0:
+            # Pre early stop phase
+            if eval_metrics.stats[pre_early_stop_key][-1] \
+                    < train_state['pre_early_stop_metric']:
+                train_state['pre_early_stop_tracker'] = 0
+                train_state['pre_early_stop_metric'] = \
+                    eval_metrics.stats[pre_early_stop_key][-1]
             else:
-                # No early stop
+                train_state['pre_early_stop_tracker'] += 1
+                print(
+                    " > Pre-early stop tracker {}/{}".format(train_state['pre_early_stop_tracker'], pre_early_stop_crit))
+                if train_state['pre_early_stop_tracker'] \
+                        == pre_early_stop_crit:
+                    early_stop_state = 1
+
+            best_cp = latest_cp
+        else:
+            # Early stop phase
+            if eval_metrics.stats[early_stop_key][-1] < train_state['best_epoch_metric']:
+                train_state['early_stop_tracker'] = 0
+                train_state['best_epoch'] = epoch + 1
+                train_state['best_epoch_metric'] = eval_metrics.stats[
+                    early_stop_key][-1]
                 best_cp = latest_cp
+            else:
+                train_state['early_stop_tracker'] += 1
+                print(
+                    " > Early stop tracker {}/{}".format(train_state['early_stop_tracker'], early_stop_crit))
+                if train_state['early_stop_tracker'] == early_stop_crit:
+                    break
 
     return train_state, best_cp

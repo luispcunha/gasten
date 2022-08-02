@@ -1,3 +1,4 @@
+from torch import log_
 import wandb
 import matplotlib.pyplot as plt
 
@@ -5,12 +6,11 @@ import matplotlib.pyplot as plt
 class MetricsLogger:
     def __init__(self, prefix=None, log_epoch=True):
         self.prefix = prefix
-        self.step_metrics = []
+        self.iteration_metrics = []
         self.running_stats = {}
+        self.it_counter = {}
         self.stats = {}
         self.epoch = 0
-        self.step = 0
-        self.step_counter = 0
         self.log_epoch = log_epoch
 
     def add_media_metric(self, name):
@@ -25,48 +25,42 @@ class MetricsLogger:
     def apply_prefix(self, name):
         return f'{self.prefix}/{name}' if self.prefix is not None else name
 
-    def add(self, name, every_step=False):
-        name = self.apply_prefix(name)
-
+    def add(self, name, iteration_metric=False):
         self.stats[name] = []
-        wandb.define_metric(name, step_metric=self.apply_prefix('epoch'))
+        wandb.define_metric(self.apply_prefix(name),
+                            step_metric=self.apply_prefix('epoch'))
 
-        if every_step:
-            self.step_metrics.append(name)
-            self.stats[f'{name}_per_step'] = []
+        if iteration_metric:
+            self.iteration_metrics.append(name)
+            self.stats[f'{name}_per_it'] = []
             self.running_stats[name] = 0
-            wandb.define_metric(
-                f'{name}_step', step_metric=self.apply_prefix('step'))
+            self.it_counter[name] = 0
 
-    def reset_step_metrics(self):
-        self.step_counter = 0
+    def reset_it_metrics(self):
         for name in self.step_metrics:
             self.running_stats[name] = 0
+            self.it_counter[name] = 0
 
-    def update_step(self, name, avg_value, n_items):
-        name = self.apply_prefix(name)
+    def update_it_metric(self, name, value):
+        self.running_stats[name] += value
+        self.it_counter[name] += 1
 
-        self.stats[name].append(avg_value)
-        self.running_stats[name] += avg_value * n_items
-
-    def update_epoch(self, name, value, prnt=False):
-        name = self.apply_prefix(name)
-
+    def update_epoch_metric(self, name, value, prnt=False):
         self.stats[name].append(value)
-        wandb.log({name: value}, commit=False)
+        wandb.log({self.apply_prefix(name): value}, commit=False)
+
         if prnt:
             print(name, " = ", value)
 
-    def finalize_step(self, n_step_items=1):
-        self.step_counter += n_step_items
-        self.step += 1
-
     def finalize_epoch(self):
-        # compute average of step metrics per epoch
-        for name in self.step_metrics:
-            epoch_value = self.running_stats[name] / self.step_counter
+        # compute average of iteration metrics per epoch
+        for name in self.iteration_metrics:
+            epoch_value = self.running_stats[name] / self.it_counter[name]
             self.stats[name].append(epoch_value)
-            wandb.log({name: epoch_value}, commit=False)
+            wandb.log({self.apply_prefix(name): epoch_value}, commit=False)
+
+            if self.log_epoch:
+                print(name, " = ", epoch_value)
 
         self.epoch += 1
         wandb.log({self.apply_prefix('epoch'): self.epoch}, commit=True)

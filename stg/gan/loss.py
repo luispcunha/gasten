@@ -126,11 +126,11 @@ class ThresholdDistBinary_GeneratorLoss(GeneratorLoss):
         self.alpha = alpha
 
     def __call__(self, device, output, fake_data):
-        term_1 = self.g_loss(device, output, fake_data)
+        term_1, _ = self.g_loss(device, output, fake_data)
 
         c_output = self.classifier(fake_data)
         term_2 = 2 * (0.5 - c_output).abs().mean()
 
-        loss = (1 - self.alpha) * term_1 + self.alpha * term_2
+        loss = term_1 + self.alpha * term_2
 
         return loss, {'original_g_loss': term_1.item(), 'conf_dist_loss': term_2.item()}

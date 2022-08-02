@@ -1,20 +1,27 @@
-from stg.gan.architectures.dcgan import Generator, Discriminator
+from stg.gan.architectures.dcgan import Generator as DC_G, Discriminator as DC_D
+from stg.gan.architectures.resnet import Generator as RN_G, Discriminator as RN_D
 from stg.gan.loss import NS_DiscriminatorLoss, NS_GeneratorLoss, W_GeneratorLoss, WGP_DiscriminatorLoss
 
 
 def construct_gan(config, img_size, device):
-    # TODO:
     use_batch_norm = config["loss"]["name"] != 'wgan-gp'
     is_critic = config["loss"]["name"] == 'wgan-gp'
 
-    G = Generator(img_size, z_dim=config['z_dim'],
-                  filter_dim=config['g_filter_dim'],
-                  n_blocks=config['g_num_blocks']).to(device)
+    arch_config = config["architecture"]
 
-    D = Discriminator(img_size,
-                      filter_dim=config['d_filter_dim'],
-                      n_blocks=config['d_num_blocks'],
-                      use_batch_norm=use_batch_norm, is_critic=is_critic).to(device)
+    if arch_config["name"] == "dcgan":
+        G = DC_G(img_size, z_dim=config['z_dim'],
+                 filter_dim=arch_config['g_filter_dim'],
+                 n_blocks=arch_config['g_num_blocks']).to(device)
+
+        D = DC_D(img_size, filter_dim=arch_config['d_filter_dim'],
+                 n_blocks=arch_config['d_num_blocks'],
+                 use_batch_norm=use_batch_norm, is_critic=is_critic).to(device)
+    elif arch_config["name"] == "resnet":
+        G = RN_G(img_size, z_dim=config['z_dim'],
+                 gf_dim=arch_config['g_filter_dim']).to(device)
+        D = RN_D(img_size, df_dim=arch_config['d_filter_dim'],
+                 use_batch_norm=use_batch_norm, is_critic=is_critic).to(device)
 
     return G, D
 

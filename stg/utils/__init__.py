@@ -12,8 +12,9 @@ from .metrics_logger import MetricsLogger
 
 def create_checkpoint_path(config, run_id):
     path = os.path.join(config['out-dir'],
+                        config['project'],
                         config['name'],
-                        datetime.now().strftime(f'%d-%mT%H-%M-%S_{run_id}'))
+                        datetime.now().strftime(f'%b%dT%H-%M_{run_id}'))
 
     os.makedirs(path, exist_ok=True)
 
