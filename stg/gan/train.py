@@ -110,7 +110,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
           d_opt, d_crit, test_noise, fid_metrics, n_disc_iters,
           early_stop=None,  # Tuple of (key, crit)
           start_early_stop_when=None,  # Tuple of (key, crit):
-          checkpoint_dir=None, checkpoint_every=1, fixed_noise=None, c_out_hist=None):
+          checkpoint_dir=None, checkpoint_every=10, fixed_noise=None, c_out_hist=None):
 
     fixed_noise = torch.randn(
         64, G.z_dim, device=device) if fixed_noise is None else fixed_noise
@@ -209,17 +209,6 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
                              loss_terms_to_str(d_loss_terms)))
 
         ###
-        # Evaluate after epoch
-        ###
-        train_state['epoch'] += 1
-
-        train_metrics.finalize_epoch()
-
-        evaluate(G, fid_metrics, eval_metrics, batch_size,
-                 test_noise, device, c_out_hist)
-        eval_metrics.finalize_epoch()
-
-        ###
         # Sample images
         ###
         with torch.no_grad():
@@ -230,6 +219,18 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
         img = make_grid(fake)
         checkpoint_image(img, epoch, output_dir=checkpoint_dir)
         eval_metrics.log_image('samples', img)
+
+        ###
+        # Evaluate after epoch
+        ###
+        train_state['epoch'] += 1
+
+        train_metrics.finalize_epoch()
+
+        evaluate(G, fid_metrics, eval_metrics, batch_size,
+                 test_noise, device, c_out_hist)
+
+        eval_metrics.finalize_epoch()
 
         ###
         # Checkpoint GAN

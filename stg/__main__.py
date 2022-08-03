@@ -13,7 +13,7 @@ from stg.gan.loss import ThresholdDistBinary_GeneratorLoss
 from stg.metrics.c_output_hist import OutputsHistogram
 from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed, seed_worker
 from stg.utils.config import read_config
-from stg.utils.checkpoint import construct_gan_from_checkpoint, construct_classifier_from_checkpoint, get_gan_path_at_epoch, load_gan_train_state
+from stg.utils.checkpoint import checkpoint, construct_gan_from_checkpoint, construct_classifier_from_checkpoint, get_gan_path_at_epoch, load_gan_train_state
 from stg.gan import construct_gan, construct_loss
 from stg.classifier import ClassifierCache
 
@@ -34,18 +34,22 @@ def construct_optimizers(config, G, D):
     return g_optim, d_optim
 
 
-def train_modified_gan(config, dataset, cp_dir, G, D, test_noise,
+def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
                        fid_metrics, c_out_hist,
                        C, C_name, C_params, C_stats, C_args, weight, fixed_noise, num_classes, device, seed, run_id, s1_epoch):
     print("Running experiment with classifier {} and weight {} ...".format(
         C_name, weight))
-    run_name = '{}_{}'.format(C_name, weight)
+    run_name = '{}_{}_{}'.format(C_name, weight, s1_epoch)
 
     gan_cp_dir = os.path.join(cp_dir, run_name)
 
     batch_size = config['train']['step-2']['batch-size']
     n_epochs = config['train']['step-2']['epochs']
     n_disc_iters = config['train']['step-2']['disc-iters']
+    checkpoint_every = config['train']['step-2']['checkpoint-every']
+
+    G, D, _, _ = construct_gan_from_checkpoint(
+        gan_path, device=device)
 
     orig_g_crit, d_crit = construct_loss(config["model"]["loss"], D)
 
@@ -94,7 +98,8 @@ def train_modified_gan(config, dataset, cp_dir, G, D, test_noise,
         n_disc_iters,
         early_stop=early_stop,
         start_early_stop_when=('fid', early_stop_crit_step_1),
-        checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise, c_out_hist=c_out_hist)
+        checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise, c_out_hist=c_out_hist,
+        checkpoint_every=checkpoint_every)
 
     wandb.finish()
 
@@ -193,6 +198,7 @@ def main():
             batch_size = config['train']['step-1']['batch-size']
             n_epochs = config['train']['step-1']['epochs']
             n_disc_iters = config['train']['step-1']['disc-iters']
+            checkpoint_every = config['train']['step-1']['checkpoint-every']
 
             fid_metrics = {
                 'fid': original_fid
@@ -228,7 +234,8 @@ def main():
                 test_noise, fid_metrics,
                 n_disc_iters,
                 early_stop=early_stop,
-                checkpoint_dir=original_gan_cp_dir, fixed_noise=fixed_noise)
+                checkpoint_dir=original_gan_cp_dir, fixed_noise=fixed_noise,
+                checkpoint_every=checkpoint_every)
 
             wandb.finish()
         else:
@@ -237,7 +244,10 @@ def main():
 
         print(" > Start step 2 (gan with modified loss")
 
-        step_1_epochs = config['train']['step-2']['step-1-epochs']
+        if 'step-1-epochs' not in config['train']['step-2']:
+            step_1_epochs = ["best"]
+        else:
+            step_1_epochs = config['train']['step-2']['step-1-epochs']
         step_1_epochs = list(set(step_1_epochs))
 
         ###
@@ -255,9 +265,6 @@ def main():
             if not os.path.exists(gan_path):
                 print(
                     f" WARNING: gan at epoch {epoch} not found. skipping ...")
-
-            G, D, _, _ = construct_gan_from_checkpoint(
-                gan_path, device=device)
 
             classifier_paths = config['train']['step-2']['classifier']
             weights = config['train']['step-2']['weight']
@@ -299,7 +306,7 @@ def main():
                 c_out_hist = OutputsHistogram(class_cache, test_noise.size(0))
 
                 for weight in weights:
-                    train_modified_gan(config, dataset, cp_dir, G, D,
+                    train_modified_gan(config, dataset, cp_dir, gan_path,
                                        test_noise, fid_metrics, c_out_hist,
                                        C, C_name, C_params, C_stats, C_args,
                                        weight, fixed_noise, num_classes, device, mod_gan_seed, run_id, epoch)

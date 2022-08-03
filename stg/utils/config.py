@@ -53,6 +53,7 @@ config_schema = Schema({
     "train": {
         "step-1": Or(And(str, os.path.exists), {
             "epochs": int,
+            "checkpoint-every": int,
             "batch-size": int,
             "disc-iters": int,
             Optional("early-stop"): {
@@ -66,6 +67,7 @@ config_schema = Schema({
                 "criteria": int,
             },
             "epochs": int,
+            "checkpoint-every": int,
             "batch-size": int,
             "disc-iters": int,
             "classifier": [And(str, os.path.exists)],

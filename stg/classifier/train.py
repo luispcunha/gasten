@@ -153,11 +153,11 @@ def parse_args():
                         help='Number of epochs to train for')
     parser.add_argument('--early-stop', dest='early_stop',
                         type=int, default=3, help='Early stopping criteria')
-    parser.add_argument('--lr', type=float, default=1e-3,
+    parser.add_argument('--lr', type=float, default=5e-4,
                         help='ADAM opt learning rate')
     parser.add_argument('--nf', type=int, default=2, help='Num features')
     parser.add_argument('--seed', default=None, type=int, help='Seed')
-    parser.add_argument('--device', default='cpu',
+    parser.add_argument('--device', default='cuda:0',
                         help='Device to run experiments (cpu, cuda:0, cuda:1, ...')
 
     return parser.parse_args()
@@ -251,7 +251,7 @@ def main():
     i = 0
     for X, y in train_dataloader:
         with torch.no_grad():
-            y_hat = best_C(X)
+            y_hat = best_C(X.to(device))
 
         train_y_hat[i:i+y_hat.size(0)] = y_hat
         i += y_hat.size(0)
@@ -263,7 +263,7 @@ def main():
     for X, y in test_dataloader:
 
         with torch.no_grad():
-            y_hat = best_C(X)
+            y_hat = best_C(X.to(device))
 
         test_y_hat[i:i+y_hat.size(0)] = y_hat
         i += y_hat.size(0)
@@ -272,14 +272,14 @@ def main():
     #                     args, output_dir=args.out_dir)
 
     np.save(os.path.join(cp_path, 'train_y_hat'),
-            train_y_hat, allow_pickle=False)
+            train_y_hat.cpu(), allow_pickle=False)
     np.save(os.path.join(cp_path, 'test_y_hat'),
-            test_y_hat, allow_pickle=False)
+            test_y_hat.cpu(), allow_pickle=False)
 
-    sns.histplot(data=train_y_hat, stat='proportion', bins=20)
+    sns.histplot(data=train_y_hat.cpu(), stat='proportion', bins=20)
     plt.savefig(os.path.join(cp_path, 'train_y_hat.svg'), dpi=300)
     plt.clf()
-    sns.histplot(data=test_y_hat, stat='proportion', bins=20)
+    sns.histplot(data=test_y_hat.cpu(), stat='proportion', bins=20)
     plt.savefig(os.path.join(cp_path, 'test_y_hat.svg'), dpi=300)
 
     print('')

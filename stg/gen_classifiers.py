@@ -24,11 +24,11 @@ parser.add_argument('--pos', dest='pos_class', default=7,
 parser.add_argument('--neg', dest='neg_class', default=1,
                     type=int, help='Negative class for binary classification')
 
-parser.add_argument('--epochs', type=str, default="1,2,3",
+parser.add_argument('--epochs', type=str, default="1",
                     help='List of number of epochs to train for')
 parser.add_argument('--classifier-type', dest='clf_type',
-                    type=str, help='list with elements "cnn" or "mlp"', default='cnn,mlp')
-parser.add_argument('--nf', type=str, default="2,4,8",
+                    type=str, help='list with elements "cnn" or "mlp"', default='cnn')
+parser.add_argument('--nf', type=str, default="1,2,4,8",
                     help='List of possible num features')
 
 
