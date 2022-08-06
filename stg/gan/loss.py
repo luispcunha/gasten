@@ -1,6 +1,7 @@
 import torch
 import torch.autograd as autograd
 import torch.nn.functional as F
+from stg.utils.min_norm_solvers import MinNormSolver
 
 
 def valid_loss(config):
@@ -91,7 +92,7 @@ class GeneratorLoss:
     def __init__(self, terms):
         self.terms = terms
 
-    def __call__(self, device, output, fake_data):
+    def __call__(self, device, output):
         raise NotImplementedError
 
     def get_loss_terms(self):
@@ -102,35 +103,17 @@ class NS_GeneratorLoss(GeneratorLoss):
     def __init__(self):
         super().__init__([])
 
-    def __call__(self, device, output, fake_data):
+    def __call__(self, device, output):
         ones = torch.ones_like(output, dtype=torch.float, device=device)
 
-        return F.binary_cross_entropy(output, ones), {}
+        return F.binary_cross_entropy(output, ones)
 
 
 class W_GeneratorLoss(GeneratorLoss):
     def __init__(self):
         super().__init__([])
 
-    def __call__(self, device, output, fake_data):
+    def __call__(self, device, output):
         d_loss_fake = output.mean()
 
-        return - d_loss_fake, {}
-
-
-class ThresholdDistBinary_GeneratorLoss(GeneratorLoss):
-    def __init__(self, g_loss, classifier, alpha=0.5):
-        super().__init__(['original_g_loss', 'conf_dist_loss'])
-        self.g_loss = g_loss
-        self.classifier = classifier
-        self.alpha = alpha
-
-    def __call__(self, device, output, fake_data):
-        term_1, _ = self.g_loss(device, output, fake_data)
-
-        c_output = self.classifier(fake_data)
-        term_2 = 2 * (0.5 - c_output).abs().mean()
-
-        loss = term_1 + self.alpha * term_2
-
-        return loss, {'original_g_loss': term_1.item(), 'conf_dist_loss': term_2.item()}
+        return - d_loss_fake

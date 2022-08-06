@@ -2,6 +2,7 @@ import os
 import argparse
 import numpy as np
 from dotenv import load_dotenv
+import pandas as pd
 
 import torch
 import wandb
@@ -9,9 +10,10 @@ import wandb
 from stg.metrics import fid, LossSecondTerm
 from stg.datasets import load_dataset
 from stg.gan.train import train
-from stg.gan.loss import ThresholdDistBinary_GeneratorLoss
+from stg.gan.update_g import UpdateGeneratorGAN, UpdateGeneratorGASTEN, UpdateGeneratorGASTEN_MGDA
 from stg.metrics.c_output_hist import OutputsHistogram
 from stg.utils import load_z, set_seed, setup_reprod, create_checkpoint_path, gen_seed, seed_worker
+from stg.utils.plot import plot_metrics
 from stg.utils.config import read_config
 from stg.utils.checkpoint import checkpoint, construct_gan_from_checkpoint, construct_classifier_from_checkpoint, get_gan_path_at_epoch, load_gan_train_state
 from stg.gan import construct_gan, construct_loss
@@ -51,13 +53,17 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
     G, D, _, _ = construct_gan_from_checkpoint(
         gan_path, device=device)
 
-    orig_g_crit, d_crit = construct_loss(config["model"]["loss"], D)
+    g_crit, d_crit = construct_loss(config["model"]["loss"], D)
 
     g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
 
     if num_classes == 2:
-        g_crit = ThresholdDistBinary_GeneratorLoss(
-            orig_g_crit, C, alpha=weight)
+        if weight == "mgda":
+            g_updater = UpdateGeneratorGASTEN_MGDA(g_crit, C, normalize=False)
+        elif weight == "mgda:norm":
+            g_updater = UpdateGeneratorGASTEN_MGDA(g_crit, C, normalize=True)
+        else:
+            g_updater = UpdateGeneratorGASTEN(g_crit, C, alpha=weight)
     else:
         raise NotImplementedError
 
@@ -90,18 +96,21 @@ def train_modified_gan(config, dataset, cp_dir, gan_path, test_noise,
         'step1_epoch': s1_epoch
     })
 
-    _, _ = train(
+    _, _, _, eval_metrics = train(
         config, dataset, device, n_epochs, batch_size,
-        G, g_optim, g_crit,
+        G, g_optim, g_updater,
         D, d_optim, d_crit,
         test_noise, fid_metrics,
         n_disc_iters,
         early_stop=early_stop,
         start_early_stop_when=('fid', early_stop_crit_step_1),
         checkpoint_dir=gan_cp_dir, fixed_noise=fixed_noise, c_out_hist=c_out_hist,
-        checkpoint_every=checkpoint_every)
+        checkpoint_every=checkpoint_every,
+        classifier=C)
 
     wandb.finish()
+
+    return eval_metrics
 
 
 def compute_dataset_fid_stats(dset, get_feature_map_fn, dims, batch_size=64, device='cpu', num_workers=0):
@@ -187,6 +196,7 @@ def main():
             config["model"], img_size, device)
         g_optim, d_optim = construct_optimizers(config["optimizer"], G, D)
         g_crit, d_crit = construct_loss(config["model"]["loss"], D)
+        g_updater = UpdateGeneratorGAN(g_crit)
 
         print("Storing generated artifacts in {}".format(cp_dir))
         original_gan_cp_dir = os.path.join(cp_dir, 'step-1')
@@ -229,7 +239,7 @@ def main():
 
             step_1_train_state, _ = train(
                 config, dataset, device, n_epochs, batch_size,
-                G, g_optim, g_crit,
+                G, g_optim, g_updater,
                 D, d_optim, d_crit,
                 test_noise, fid_metrics,
                 n_disc_iters,
@@ -250,66 +260,79 @@ def main():
             step_1_epochs = config['train']['step-2']['step-1-epochs']
         step_1_epochs = list(set(step_1_epochs))
 
+        classifier_paths = config['train']['step-2']['classifier']
+        weights = config['train']['step-2']['weight']
+
         ###
         # Train modified GAN
         ###
-        for s1_epoch in step_1_epochs:
-            if s1_epoch == "best":
-                epoch = step_1_train_state['best_epoch']
-            elif s1_epoch == "last":
-                epoch = step_1_train_state['epoch']
-            else:
-                epoch = s1_epoch
+        mod_gan_seed = step_2_seeds[i]
 
-            gan_path = get_gan_path_at_epoch(original_gan_cp_dir, epoch=epoch)
-            if not os.path.exists(gan_path):
-                print(
-                    f" WARNING: gan at epoch {epoch} not found. skipping ...")
+        for c_path in classifier_paths:
+            C_name = os.path.splitext(os.path.basename(c_path))[0]
+            C, C_params, C_stats, C_args = construct_classifier_from_checkpoint(
+                c_path, device=device)
+            C.to(device)
+            C.eval()
+            C.output_feature_maps = True
 
-            classifier_paths = config['train']['step-2']['classifier']
-            weights = config['train']['step-2']['weight']
+            class_cache = ClassifierCache(C)
 
-            mod_gan_seed = step_2_seeds[i]
+            def get_feature_map_fn(images, batch_idx, batch_size):
+                return class_cache.get(images, batch_idx, batch_size, output_feature_maps=True)[1]
 
-            for c_path in classifier_paths:
-                C_name = os.path.splitext(os.path.basename(c_path))[0]
-                C, C_params, C_stats, C_args = construct_classifier_from_checkpoint(
-                    c_path, device=device)
-                C.to(device)
-                C.eval()
-                C.output_feature_maps = True
+            dims = get_feature_map_fn(
+                dataset.data[0:1].to(device), 0, 1).size(1)
 
-                class_cache = ClassifierCache(C)
+            print(" > Computing statistics using original dataset")
+            mu, sigma = compute_dataset_fid_stats(
+                dataset, get_feature_map_fn, dims, device=device, num_workers=num_workers)
+            print("   ... done")
 
-                def get_feature_map_fn(images, batch_idx, batch_size):
-                    return class_cache.get(images, batch_idx, batch_size, output_feature_maps=True)[1]
+            our_class_fid = fid.FID(get_feature_map_fn, dims,
+                                    test_noise.size(0), mu, sigma, device=device)
 
-                dims = get_feature_map_fn(
-                    dataset.data[0:1].to(device), 0, 1).size(1)
+            conf_dist = LossSecondTerm(class_cache)
 
-                print(" > Computing statistics using original dataset")
-                mu, sigma = compute_dataset_fid_stats(
-                    dataset, get_feature_map_fn, dims, device=device, num_workers=num_workers)
-                print("   ... done")
+            fid_metrics = {
+                'fid': original_fid,
+                'focd': our_class_fid,
+                'conf_dist': conf_dist,
+            }
 
-                our_class_fid = fid.FID(get_feature_map_fn, dims,
-                                        test_noise.size(0), mu, sigma, device=device)
+            c_out_hist = OutputsHistogram(class_cache, test_noise.size(0))
 
-                conf_dist = LossSecondTerm(class_cache)
+            step2_metrics = []
 
-                fid_metrics = {
-                    'fid': original_fid,
-                    'focd': our_class_fid,
-                    'conf_dist': conf_dist,
-                }
+            for s1_epoch in step_1_epochs:
+                if s1_epoch == "best":
+                    epoch = step_1_train_state['best_epoch']
+                elif s1_epoch == "last":
+                    epoch = step_1_train_state['epoch']
+                else:
+                    epoch = s1_epoch
 
-                c_out_hist = OutputsHistogram(class_cache, test_noise.size(0))
+                gan_path = get_gan_path_at_epoch(
+                    original_gan_cp_dir, epoch=epoch)
+                if not os.path.exists(gan_path):
+                    print(
+                        f" WARNING: gan at epoch {epoch} not found. skipping ...")
 
                 for weight in weights:
-                    train_modified_gan(config, dataset, cp_dir, gan_path,
-                                       test_noise, fid_metrics, c_out_hist,
-                                       C, C_name, C_params, C_stats, C_args,
-                                       weight, fixed_noise, num_classes, device, mod_gan_seed, run_id, epoch)
+                    eval_metrics = train_modified_gan(config, dataset, cp_dir, gan_path,
+                                                      test_noise, fid_metrics, c_out_hist,
+                                                      C, C_name, C_params, C_stats, C_args,
+                                                      weight, fixed_noise, num_classes, device, mod_gan_seed, run_id, epoch)
+
+                    step2_metrics.append(pd.DataFrame(
+                        {'fid': eval_metrics.stats['fid'],
+                         'conf_dist': eval_metrics.stats['conf_dist'],
+                         's1_epochs': [epoch]*len(eval_metrics.stats['fid']),
+                         'weight': [weight]*len(eval_metrics.stats['fid']),
+                         'epoch': [i+1 for i in range(len(eval_metrics.stats['fid']))]}))
+
+            step2_metrics = pd.concat(step2_metrics)
+            plot_metrics(step2_metrics, cp_dir, C_name)
 
 
 if __name__ == "__main__":

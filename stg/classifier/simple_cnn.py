@@ -43,7 +43,8 @@ class Classifier(nn.Module):
         self.blocks.append(nn.Flatten())
 
         predictor = nn.Sequential(
-            nn.Linear(nh * nw * nf * 2, 1 if num_classes == 2 else num_classes),
+            nn.Linear(nh * nw * nf * 2, 1 if num_classes ==
+                      2 else num_classes),
             nn.Sigmoid() if num_classes == 2 else nn.Softmax(dim=1)
         )
         self.blocks.append(predictor)

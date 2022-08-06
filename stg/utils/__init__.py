@@ -83,12 +83,66 @@ def load_z(path):
     return torch.Tensor(z), conf
 
 
-def make_grid(images):
+def make_grid(images, nrow=None, total_images=None):
+    if nrow is None:
+        nrow = math.sqrt(images.size(0))
+        if nrow % 1 != 0:
+            nrow = 8
+    else:
+        if total_images is not None:
+            total_images = math.ceil(total_images / nrow) * nrow
 
-    nrow = math.sqrt(images.size(0))
-    if nrow % 1 != 0:
-        nrow = 8
+        blank_images = - torch.ones(
+            (total_images - images.size(0), images.size(1), images.size(2), images.size(3)))
+        images = torch.concat((images, blank_images), 0)
 
-    img = vutils.make_grid(images, padding=2, normalize=True, nrow=int(nrow))
+    img = vutils.make_grid(
+        images, padding=2, normalize=True, nrow=int(nrow), value_range=(-1, 1))
+
+    return img
+
+
+def group_images(images, classifier=None, device=None):
+
+    if classifier is None:
+        return make_grid(images)
+
+    y = torch.zeros((images.size(0)))
+    n_images = images.size(0)
+
+    for i in range(0, n_images, 100):
+        i_stop = min(i+100, n_images)
+        y[i:i_stop] = classifier(images[i:i_stop].to(device))
+
+    y, idxs = torch.sort(y)
+    images = images[idxs]
+
+    groups = []
+    n_divs = 10
+    step = 1 / n_divs
+    group_start = 0
+
+    largest_group = 0
+
+    for i in range(n_divs):
+        up_bound = (i + 1) * step
+
+        group_end = (y > up_bound).nonzero(
+            as_tuple=True)[0]
+
+        if group_end.size()[0] == 0:
+            group_end = images.size(0)
+        else:
+            group_end = group_end[0].item()
+
+        groups.append(images[group_start:group_end])
+
+        largest_group = max(group_end - group_start, largest_group)
+
+        group_start = group_end
+
+    grids = [make_grid(g, nrow=3, total_images=largest_group)
+             for g in groups]
+    img = torch.concat(grids, 2)
 
     return img

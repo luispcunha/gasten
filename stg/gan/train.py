@@ -1,10 +1,9 @@
 import torch
-import torchvision.utils as vutils
 from stg.utils.checkpoint import checkpoint_gan, checkpoint_image
 from stg.utils import seed_worker
 from tqdm import tqdm
 import math
-from stg.utils import MetricsLogger, make_grid
+from stg.utils import MetricsLogger, group_images
 import matplotlib.pyplot as plt
 
 
@@ -84,19 +83,11 @@ def train_disc(G, D, d_opt, d_crit, real_data,
     return d_loss, d_loss_terms
 
 
-def train_gen(G, D, g_opt, g_crit,
+def train_gen(update_fn, G, D, g_opt,
               batch_size, train_metrics, device):
-    G.zero_grad()
-
     noise = torch.randn(batch_size, G.z_dim, device=device)
-    fake_data = G(noise)
 
-    output = D(fake_data)
-
-    # Compute loss, gradients and update net
-    g_loss, g_loss_terms = g_crit(device, output, fake_data)
-    g_loss.backward()
-    g_opt.step()
+    g_loss, g_loss_terms = update_fn(G, D, g_opt, noise, device)
 
     for loss_term_name, loss_term_value in g_loss_terms.items():
         train_metrics.update_it_metric(loss_term_name, loss_term_value)
@@ -106,11 +97,12 @@ def train_gen(G, D, g_opt, g_crit,
     return g_loss, g_loss_terms
 
 
-def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
+def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_updater, D,
           d_opt, d_crit, test_noise, fid_metrics, n_disc_iters,
           early_stop=None,  # Tuple of (key, crit)
           start_early_stop_when=None,  # Tuple of (key, crit):
-          checkpoint_dir=None, checkpoint_every=10, fixed_noise=None, c_out_hist=None):
+          checkpoint_dir=None, checkpoint_every=10, fixed_noise=None, c_out_hist=None,
+          classifier=None):
 
     fixed_noise = torch.randn(
         64, G.z_dim, device=device) if fixed_noise is None else fixed_noise
@@ -142,7 +134,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
     train_metrics.add('G_loss', iteration_metric=True)
     train_metrics.add('D_loss', iteration_metric=True)
 
-    for loss_term in g_crit.get_loss_terms():
+    for loss_term in g_updater.get_loss_terms():
         train_metrics.add(loss_term, iteration_metric=True)
 
     for loss_term in d_crit.get_loss_terms():
@@ -163,7 +155,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
         G, D, g_opt, d_opt, {}, {}, config, epoch=0, output_dir=checkpoint_dir)
     best_cp = latest_cp
 
-    img = make_grid(fake)
+    img = group_images(fake, classifier=classifier, device=device)
     checkpoint_image(img, 0, output_dir=checkpoint_dir)
 
     G.train()
@@ -196,8 +188,8 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
             if i % n_disc_iters == 0:
                 curr_g_iter += 1
 
-                g_loss, g_loss_terms = train_gen(
-                    G, D, g_opt, g_crit, batch_size, train_metrics, device)
+                g_loss, g_loss_terms = train_gen(g_updater,
+                    G, D, g_opt, batch_size, train_metrics, device)
 
                 ###
                 # Log stats
@@ -216,7 +208,7 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
             fake = G(fixed_noise).detach().cpu()
             G.train()
 
-        img = make_grid(fake)
+        img = group_images(fake, classifier=classifier, device=device)
         checkpoint_image(img, epoch, output_dir=checkpoint_dir)
         eval_metrics.log_image('samples', img)
 
@@ -275,4 +267,4 @@ def train(config, dataset, device, n_epochs, batch_size, G, g_opt, g_crit, D,
                 if train_state['early_stop_tracker'] == early_stop_crit:
                     break
 
-    return train_state, best_cp
+    return train_state, best_cp, train_metrics, eval_metrics

@@ -1,11 +1,11 @@
-project: "test-different-loss-real"
+project: "pareto"
 name: "exp-mnist-7v1"
 out-dir: "/media/TOSHIBA6T/LCUNHA/msc/out"
 data-dir: "/home/lcunha/data"
-test-noise: "/home/lcunha/data/z/z_10000_64"
-fixed-noise: 64
+test-noise: "/home/lcunha/data/z/z_2000_64"
+fixed-noise: 200
 
-device: cpu
+device: cuda:0
 num-workers: 6
 
 fid-stats-path: "/home/lcunha/data/fid-stats/stats.inception.mnist.7v1.npz"
@@ -29,31 +29,24 @@ model:
   loss:
     name: "ns"
 
-
 optimizer:
   lr: 0.0002
   beta1: 0.5
   beta2: 0.999
 
 train:
-  step-1: "/media/TOSHIBA6T/LCUNHA/msc/out/exp-mnist-7v1/27-06T18-26-34_3v5qqkzp/step-1"
+  step-1: "/media/TOSHIBA6T/LCUNHA/msc/out/mgda/exp-mnist-7v1/Aug05T23-14_1a6bqin3/step-1"
   step-2:
     step-1-epochs:
       - 0
-      - "last"
-      - 2
-      - "best"
-      - 40
-    epochs: 0
+      - 5
+    epochs: 2
+    checkpoint-every: 10
     batch-size: 64
     disc-iters: 1
     classifier:
-      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-2-2.mnist.88011.7v1"
+      - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mnist.7v1/cnn-1-1.25442"
     weight:
-      - 1.0
-      - 2.0
-
-
-
-
+      - 5
+      - 10
 

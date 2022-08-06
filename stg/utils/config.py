@@ -71,7 +71,7 @@ config_schema = Schema({
             "batch-size": int,
             "disc-iters": int,
             "classifier": [And(str, os.path.exists)],
-            "weight": [Or(int, float)]
+            "weight": [Or(int, float, "mgda", "mgda:norm")]
         }
     }
 })

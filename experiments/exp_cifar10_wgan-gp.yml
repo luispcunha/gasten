@@ -46,7 +46,12 @@ train:
     classifier:
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/mlp-2-50.fashion-mnist.93072.7v5.pth"
       - "/media/TOSHIBA6T/LCUNHA/msc/classifiers/cnn-2-50.fashion-mnist.36668.7v5.pth"
+    weight-factor:
+      - 0.95
+      - 1
+      - 1.05
     weight:
-      - 0
+      - 6
+      - 8
 
 

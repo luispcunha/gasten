@@ -6,6 +6,7 @@ import torch.optim as optim
 from stg.classifier import construct_classifier
 from stg.gan import construct_gan
 from stg.gan.architectures.dcgan import Generator, Discriminator
+import matplotlib.pyplot as plt
 
 
 def checkpoint(model, model_name, model_params, train_stats, args, output_dir=None, optimizer=None):
@@ -141,11 +142,11 @@ def checkpoint_gan(G, D, g_opt, d_opt, state, stats, config, output_dir=None, ep
 
 
 def checkpoint_image(image, epoch, output_dir=None):
-    path = os.path.curdir if output_dir is None else output_dir
+    dir = os.path.curdir if output_dir is None else output_dir
 
-    path = os.path.join(path, 'gen_images')
-    os.makedirs(path, exist_ok=True)
+    dir = os.path.join(dir, 'gen_images')
+    os.makedirs(dir, exist_ok=True)
 
-    path = os.path.join(path, '{:02d}.png'.format(epoch))
+    path = os.path.join(dir, '{:02d}.png'.format(epoch))
 
     vutils.save_image(image, path)
