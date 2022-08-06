@@ -15,10 +15,10 @@ parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data', dest='dataroot',
                     default='/home/lcunha/data', help='Dir with dataset')
 parser.add_argument('--dataset', dest='dataset',
-                    default='mnist', help='Dataset (mnist or fashion-mnist)')
-parser.add_argument('--pos', dest='pos_class', default=None,
+                    default='fashion-mnist', help='Dataset (mnist or fashion-mnist)')
+parser.add_argument('--pos', dest='pos_class', default=3,
                     type=int, help='Positive class for binary classification')
-parser.add_argument('--neg', dest='neg_class', default=None,
+parser.add_argument('--neg', dest='neg_class', default=0,
                     type=int, help='Negative class for binary classification')
 parser.add_argument('--batch-size', type=int, default=64,
                     help='Batch size to use')

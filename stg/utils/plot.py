@@ -91,3 +91,5 @@ def plot_metrics(data, path, C_name):
     sns.scatterplot(data=data, x="fid",
                     y="conf_dist", hue="weight", style="s1_epochs", palette="deep", size=size)
     plt.savefig(os.path.join(path, f'metrics_{C_name}.svg'))
+
+    plt.close()

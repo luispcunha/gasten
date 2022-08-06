@@ -237,7 +237,7 @@ def main():
                            'test-noise': test_noise_conf,
             })
 
-            step_1_train_state, _ = train(
+            step_1_train_state, _, _, _ = train(
                 config, dataset, device, n_epochs, batch_size,
                 G, g_optim, g_updater,
                 D, d_optim, d_crit,
@@ -332,7 +332,7 @@ def main():
                          'epoch': [i+1 for i in range(len(eval_metrics.stats['fid']))]}))
 
             step2_metrics = pd.concat(step2_metrics)
-            plot_metrics(step2_metrics, cp_dir, C_name)
+            plot_metrics(step2_metrics, cp_dir, f'{C_name}-{run_id}')
 
 
 if __name__ == "__main__":

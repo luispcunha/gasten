@@ -7,7 +7,7 @@ parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
 parser.add_argument('--data-dir', dest='dataroot',
                     default='/home/lcunha/data', help='Dir with dataset')
 parser.add_argument('--out-dir', dest='out_dir',
-                    default='/media/TOSHIBA6T/LCUNHA/msc/classifiers-new', help='Path to generated files')
+                    default='/media/TOSHIBA6T/LCUNHA/classifiers', help='Path to generated files')
 parser.add_argument('--dataset', dest='dataset',
                     default='mnist', help='Dataset (mnist or fashion-mnist or cifar10)')
 parser.add_argument('--n-classes', dest='n_classes',
@@ -19,16 +19,16 @@ parser.add_argument('--batch-size', dest='batch_size',
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='ADAM opt learning rate')
 
-parser.add_argument('--pos', dest='pos_class', default=7,
+parser.add_argument('--pos', dest='pos_class', default=9,
                     type=int, help='Positive class for binary classification')
-parser.add_argument('--neg', dest='neg_class', default=1,
+parser.add_argument('--neg', dest='neg_class', default=4,
                     type=int, help='Negative class for binary classification')
 
-parser.add_argument('--epochs', type=str, default="1",
+parser.add_argument('--epochs', type=str, default="3",
                     help='List of number of epochs to train for')
 parser.add_argument('--classifier-type', dest='clf_type',
                     type=str, help='list with elements "cnn" or "mlp"', default='cnn')
-parser.add_argument('--nf', type=str, default="1,2,4,8",
+parser.add_argument('--nf', type=str, default="2,4,8,16",
                     help='List of possible num features')
 
 
